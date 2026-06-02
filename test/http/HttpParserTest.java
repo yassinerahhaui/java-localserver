@@ -32,7 +32,7 @@ public class HttpParserTest {
             } else {
                 System.out.println("  [FAIL] Parsed data is incorrect.");
             }
-        } catch (Exception e) {
+        } catch (IllegalArgumentException e) {
             System.out.println("  [FAIL] Threw unexpected exception: " + e.getMessage());
         }
     }
