@@ -77,6 +77,25 @@ public class HttpParser {
      * @throws IllegalArgumentException If a header line is malformed.
      */
     private void parseHeaders(String[] lines, HttpRequest request) {
+        // Start from the second line (index 1) since the first line already parsed
+        for (int i = 1; i < lines.length; i++) {
+            String line = lines[i];
 
+            // Task: Stop at the empty line \r\n
+            // Since we split by \r\n, the empty line becomes an empty string ""
+            if (line.isEmpty()) {
+                break; // End of headers reached, stop parsing
+            }
+
+            // Split the line at the first colon ":"
+            // Using limit 2 ensures that colons within the header value (e.g., in a URL) are not split
+            String[] headerParts = line.split(":", 2);
+
+            if (headerParts.length == 2) {
+                request.addHeader(headerParts[0], headerParts[1]);
+            } else {
+                throw new IllegalArgumentException("400 Bad Request: Malformed header line -> " + line);
+            }
+        }
     }
 }
