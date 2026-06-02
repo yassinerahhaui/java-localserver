@@ -44,7 +44,28 @@ public class HttpParser {
      * @throws IllegalArgumentException If the request line is malformed or the method is unknown.
      */
     private void parseRequestLine(String requestLine, HttpRequest request) {
+        // The request line components are separated by spaces
+        String[] parts = requestLine.split(" ");
 
+        // Error Handling: The request line must contain exactly 3 parts
+        if (parts.length != 3) {
+            throw new IllegalArgumentException("400 Bad Request: Malformed request line");
+        }
+
+        // Use the HttpMethod enum to ensure Type Safety
+        HttpMethod method = HttpMethod.fromString(parts[0]);
+        if (method == null) {
+            throw new IllegalArgumentException("501 Not Implemented: Unknown HTTP method '" + parts[0] + "'");
+        }
+
+        request.setMethod(method);
+        request.setUri(parts[1]);
+        request.setVersion(parts[2]);
+
+        // Additional Validation: Ensure the protocol is HTTP/1.1
+        if (!request.getVersion().equals("HTTP/1.1")) {
+            throw new IllegalArgumentException("505 HTTP Version Not Supported");
+        }
     }
 
     /**
