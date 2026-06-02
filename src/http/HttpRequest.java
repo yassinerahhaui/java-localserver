@@ -11,7 +11,8 @@ public class HttpRequest {
     private HttpMethod method;
     private String uri;
     private String version;
-    private final Map<String,String> headers;
+    private final Map<String, String> headers;
+    private String body;
 
     public HttpRequest() {
         this.headers = new HashMap<>();
@@ -43,6 +44,14 @@ public class HttpRequest {
         this.version = version;
     }
 
+    public String getBody() {
+        return body;
+    }
+
+    public void setBody(String body) {
+        this.body = body;
+    }
+
     public Map<String, String> getHeaders() {
         return headers;
     }
@@ -63,7 +72,8 @@ public class HttpRequest {
      * Retrieves a header value by its key (Case-Insensitive).
      */
     public String getHeader(String key) {
-        if (key == null) return null;
+        if (key == null)
+            return null;
         return this.headers.get(key.toLowerCase());
     }
 
@@ -73,12 +83,14 @@ public class HttpRequest {
     @Override
     public String toString() {
         return """
-               === HTTP Request ===
-               Method: %s
-               URI: %s
-               Version: %s
-               Headers: %s
-               ====================
-               """.formatted(method, uri, version, headers);
+                === HTTP Request ===
+                Method: %s
+                URI: %s
+                Version: %s
+                Headers: %s
+                Body: %s
+                ====================
+                """.formatted(method, uri, version, headers,
+                (body != null && !body.isEmpty()) ? "\n" + body : "[Empty]");
     }
 }
