@@ -54,8 +54,8 @@ public class Router {
         }
 
         // 6. CGI Routing: Flag the request if the extension matches our CGI scripts
-        boolean isCgi = uri.endsWith(".py") || uri.endsWith(".php") || uri.endsWith(".cgi");
-
+        boolean isCgi = uri.endsWith(".py") || uri.endsWith(".php") || uri.endsWith(".sh") || uri.endsWith(".cgi");
+        
         // 7. Success: Return 200 OK with the target file and the CGI flag
         return new RouteResult(targetFile, 200, isCgi);
     }
