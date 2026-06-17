@@ -1,4 +1,88 @@
 {
-  "host": "127.0.0.1",
-  "ports": [8080, 9090, 8081]
+  "servers": [
+    {
+      "host": "127.0.0.1",
+      "ports": [8080, 8081],
+      "defaultServer": true,
+      "clientMaxBodySize": 10485760,
+
+      "errorPages": {
+        "404": "./errors/404.html",
+        "500": "./errors/500.html"
+      },
+
+      "routes": [
+        {
+          "path": "/",
+          "root": "./www/main",
+          "methods": ["GET"],
+          "index": "index.html",
+          "autoindex": false
+        }
+      ]
+    },
+
+    {
+      "host": "127.0.0.1",
+      "ports": [9000],
+      "defaultServer": false,
+      "clientMaxBodySize": 5242880,
+
+      "errorPages": {
+        "404": "./errors/blog_404.html",
+        "500": "./errors/blog_500.html"
+      },
+
+      "routes": [
+        {
+          "path": "/",
+          "root": "./www/blog",
+          "methods": ["GET"],
+          "index": "blog.html",
+          "autoindex": false
+        },
+        {
+          "path": "/uploads",
+          "root": "./uploads",
+          "methods": ["GET", "POST", "DELETE"],
+          "autoindex": true
+        }
+      ]
+    },
+
+    {
+      "host": "127.0.0.1",
+      "ports": [7000],
+      "defaultServer": false,
+      "clientMaxBodySize": 2097152,
+
+      "errorPages": {
+        "404": "./errors/api_404.html",
+        "500": "./errors/api_500.html"
+      },
+
+      "routes": [
+        {
+          "path": "/",
+          "root": "./www/api",
+          "methods": ["GET"]
+        },
+        {
+          "path": "/cgi",
+          "root": "./cgi-bin",
+          "methods": ["GET", "POST"],
+          "cgi": {
+            ".py": "/usr/bin/python3"
+          }
+        },
+        {
+          "path": "/old-api",
+          "redirect": {
+            "code": 301,
+            "target": "/api"
+          }
+        }
+      ]
+    }
+  ]
 }
