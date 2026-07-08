@@ -1,30 +1,29 @@
 package http;
 
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 
-/**
- * Represents a parsed HTTP request.
- * Contains the Request Line details (Method, URI, Version) and the Headers.
- */
 public class HttpRequest {
-    private HttpMethod method;
+    private String method;
     private String uri;
-    private String version;
-    private final Map<String, String> headers;
-    private String body;
+    private String httpVersion;
+    private Map<String, String> headers;
+    private Map<String, String> cookies;
+    private byte[] body;
+    private String queryString;
+    private Map<String, String> queryParams;
 
     public HttpRequest() {
         this.headers = new HashMap<>();
+        this.cookies = new HashMap<>();
+        this.queryParams = new HashMap<>();
+        this.body = new byte[0];
     }
 
-    // ================== Getters && Setters ==================
-
-    public HttpMethod getMethod() {
+    public String getMethod() {
         return method;
     }
 
-    public void setMethod(HttpMethod method) {
+    public void setMethod(String method) {
         this.method = method;
     }
 
@@ -34,63 +33,136 @@ public class HttpRequest {
 
     public void setUri(String uri) {
         this.uri = uri;
+        parseQueryString();
     }
 
-    public String getVersion() {
-        return version;
+    public String getPath() {
+        if (uri == null) return "/";
+        int questionIndex = uri.indexOf('?');
+        return questionIndex > 0 ? uri.substring(0, questionIndex) : uri;
     }
 
-    public void setVersion(String version) {
-        this.version = version;
+    public String getHttpVersion() {
+        return httpVersion;
     }
 
-    public String getBody() {
-        return body;
-    }
-
-    public void setBody(String body) {
-        this.body = body;
+    public void setHttpVersion(String httpVersion) {
+        this.httpVersion = httpVersion;
     }
 
     public Map<String, String> getHeaders() {
         return headers;
     }
 
-    // =============== Helper Methods ===============
+    public String getHeader(String name) {
+        return headers.get(name.toLowerCase());
+    }
 
-    /**
-     * Adds a header to the request.
-     * Stores keys in lowercase to ensure case-insensitive retrieval later.
-     */
-    public void addHeader(String key, String value) {
-        if (key != null && value != null) {
-            this.headers.put(key.trim().toLowerCase(), value.trim());
+    public void addHeader(String name, String value) {
+        headers.put(name.toLowerCase(), value);
+    }
+
+    public Map<String, String> getCookies() {
+        return cookies;
+    }
+
+    public String getCookie(String name) {
+        return cookies.get(name);
+    }
+
+    public void parseCookies() {
+        String cookieHeader = getHeader("cookie");
+        if (cookieHeader != null) {
+            String[] cookiePairs = cookieHeader.split(";");
+            for (String pair : cookiePairs) {
+                String[] kv = pair.trim().split("=", 2);
+                if (kv.length == 2) {
+                    cookies.put(kv[0], kv[1]);
+                }
+            }
         }
     }
 
-    /**
-     * Retrieves a header value by its key (Case-Insensitive).
-     */
-    public String getHeader(String key) {
-        if (key == null)
-            return null;
-        return this.headers.get(key.toLowerCase());
+    public byte[] getBody() {
+        return body;
     }
 
-    /**
-     * Prints the request details nicely for debugging and Mock Testing.
-     */
+    public void setBody(byte[] body) {
+        this.body = body != null ? body : new byte[0];
+    }
+
+    public Map<String, String> getQueryParams() {
+        return queryParams;
+    }
+
+    public String getQueryParam(String name) {
+        return queryParams.get(name);
+    }
+
+    private void parseQueryString() {
+        queryParams.clear();
+        if (uri == null) return;
+        
+        int questionIndex = uri.indexOf('?');
+        if (questionIndex > 0) {
+            queryString = uri.substring(questionIndex + 1);
+            String[] pairs = queryString.split("&");
+            for (String pair : pairs) {
+                String[] kv = pair.split("=", 2);
+                if (kv.length == 2) {
+                    queryParams.put(urlDecode(kv[0]), urlDecode(kv[1]));
+                } else if (kv.length == 1) {
+                    queryParams.put(urlDecode(kv[0]), "");
+                }
+            }
+        }
+    }
+
+    public long getContentLength() {
+        String contentLength = getHeader("content-length");
+        if (contentLength != null) {
+            try {
+                return Long.parseLong(contentLength);
+            } catch (NumberFormatException e) {
+                return 0;
+            }
+        }
+        return 0;
+    }
+
+    public String getContentType() {
+        return getHeader("content-type");
+    }
+
+    public boolean isChunked() {
+        String transferEncoding = getHeader("transfer-encoding");
+        return transferEncoding != null && transferEncoding.toLowerCase().contains("chunked");
+    }
+
+    public static String urlDecode(String s) {
+        if (s == null) return "";
+        try {
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < s.length(); i++) {
+                char c = s.charAt(i);
+                if (c == '+') {
+                    sb.append(' ');
+                } else if (c == '%' && i + 2 < s.length()) {
+                    String hex = s.substring(i + 1, i + 3);
+                    sb.append((char) Integer.parseInt(hex, 16));
+                    i += 2;
+                } else {
+                    sb.append(c);
+                }
+            }
+            return sb.toString();
+        } catch (Exception e) {
+            return s;
+        }
+    }
+
     @Override
     public String toString() {
-        return """
-                === HTTP Request ===
-                Method: %s
-                URI: %s
-                Version: %s
-                Headers: %s
-                Body: %s
-                ====================
-                """.formatted(method, uri, version, headers,
-                (body != null && !body.isEmpty()) ? "\n" + body : "[Empty]");
+        return method + " " + uri + " " + httpVersion;
     }
 }
