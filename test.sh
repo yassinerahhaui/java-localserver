@@ -104,7 +104,7 @@ fi
 response_upload=$(curl -s -w "\n%{http_code}" -X POST -H "Content-Disposition: attachment; filename=\"test9090.txt\"" -d "hello 9090" "http://localhost:9090/upload")
 status_upload=$(echo "$response_upload" | tail -n1)
 upload_body=$(echo "$response_upload" | head -n -1)
-# التعديل هنا: استخراج الاسم بدقة باستخدام awk 
+# Edit here: Extract the filename precisely using awk
 uploaded_filename=$(echo "$upload_body" | awk -F'Name: ' '{print $2}' | tr -d '\r\n')
 
 if [ "$status_upload" = "201" ]; then

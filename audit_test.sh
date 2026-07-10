@@ -1,13 +1,13 @@
 #!/bin/bash
 
-# الألوان لتوضيح النتائج في سطر الأوامر
+# Colors to clarify results in the command line
 GREEN='\033[0;32m'
 RED='\033[0;31m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# متغيرات المنافذ بناءً على إعداداتك
+# Port variables based on your settings
 PORT_MAIN=8080
 PORT_SEC=9090
 HOST="localhost"
@@ -19,7 +19,7 @@ echo -e "${BLUE}       Webserv / Custom HTTP Server Audit Script      ${NC}"
 echo -e "${BLUE}======================================================${NC}"
 echo ""
 
-# دالة مساعدة لطباعة العناوين
+# Helper function to print headers
 print_title() {
     echo -e "\n${YELLOW}=== $1 ===${NC}"
 }
@@ -42,7 +42,7 @@ print_title "2. Directory Listing & Default Files"
 # ---------------------------------------------------------
 
 echo -n "Test 2.1: Directory Listing (if no default file) -> "
-# سنختبر مسار الرفع في الخادم الأول لأنه يمتلك directory_listing: true
+# We will test the upload path in the first server because it has directory_listing: true
 RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" -X GET ${BASE_URL}/upload/)
 if [ "$RESPONSE" -eq 200 ] || [ "$RESPONSE" -eq 403 ]; then echo -e "${GREEN}PASS ($RESPONSE)${NC}"; else echo -e "${RED}FAIL ($RESPONSE)${NC}"; fi
 
@@ -63,11 +63,11 @@ if [ "$RESPONSE" -eq 405 ]; then echo -e "${GREEN}PASS (405)${NC}"; else echo -e
 # ---------------------------------------------------------
 print_title "4. Client Body Limit (413 Payload Too Large)"
 # ---------------------------------------------------------
-# سنصنع ملفاً كبيراً نسبياً (أكبر من 1 ميجابايت إذا كان إعداد الخادم الافتراضي 1 ميجا)
-# للسرعة، سنحاول رفع بيانات وهمية ضخمة
+# We will create a relatively large file (greater than 1MB if the default server setting is 1MB)
+# For speed, we will try to upload large dummy data
 echo -n "Test 4.1: Exceed Body Limit (if applicable) -> "
-# سنحاول إرسال 5 ميجابايت إلى مسار لا يدعمها (مثل مسار فيه حد 1MB)
-# قمنا بإنشاء ملف 5 ميجا مؤقت
+# We will try to send 5MB to a path that does not support it (e.g., a path with a 1MB limit)
+# We created a temporary 5MB file
 dd if=/dev/urandom of=large_test.bin bs=1M count=5 2>/dev/null
 RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" -X POST ${SEC_URL}/ -H "Expect:" --data-binary @large_test.bin)
 if [ "$RESPONSE" -eq 413 ] || [ "$RESPONSE" -eq 405 ]; then 
@@ -86,7 +86,7 @@ echo "Creating a test file for upload..."
 echo "Hello Webserv Auditor!" > test_upload.txt
 
 echo -n "Test 5.1: Upload File (201 Created) -> "
-# لاحظ استخدام المسار الصحيح للرفع
+# Note the use of the correct upload path
 RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" -X POST ${BASE_URL}/upload \
      -H "Content-Disposition: attachment; filename=test_upload.txt" \
      --data-binary @test_upload.txt)

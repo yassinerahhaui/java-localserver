@@ -56,14 +56,14 @@ public class Server {
                 // 1. Check for duplicates in the SAME block
                 if (!seenPortsInThisBlock.add(port)) {
                     System.err.println("⚠️ CONFIG ERROR: Port " + port + " is duplicated within the same server block ('" + serverName + "'). Ignoring duplicate.");
-                    continue; // تخطي المنفذ المكرر دون إيقاف الخادم
+                    continue; // Skip duplicate port without stopping the server
                 }
                 
                 // 2. Check for identical virtual hosts across blocks
                 String vhostKey = port + ":" + serverName;
                 if (!vhostTracker.add(vhostKey)) {
                     System.err.println("⚠️ CONFIG ERROR: Conflict! Port " + port + " with server_name '" + serverName + "' is configured multiple times. Ignoring conflicting setup.");
-                    continue; // تخطي الإعداد المتضارب دون إيقاف الخادم
+                    continue; // Skip conflicting setup without stopping the server
                 }
                 
                 uniquePortsToBind.add(port);
@@ -80,7 +80,7 @@ public class Server {
             String serverName = config.getServerName() != null ? config.getServerName() : "unknown_server";
             
             for (int port : config.getPorts()) {
-                // التأكد من أن هذا المنفذ لم يتم تخطيه في مرحلة فحص الأخطاء
+                // Ensure that this port was not skipped during the error checking phase
                 if (!vhostTracker.contains(port + ":" + serverName)) {
                     continue; 
                 }

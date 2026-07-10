@@ -160,7 +160,7 @@ public class ConfigLoader {
             }
 
             Set<Integer> uniquePortsInServer = new HashSet<>();
-            // استخدام Iterator لحذف المنافذ المكررة بأمان دون إيقاف الخادم
+            // Use Iterator to safely remove duplicate ports without stopping the server
             Iterator<Integer> portIterator = server.getPorts().iterator();
             
             while (portIterator.hasNext()) {
@@ -170,14 +170,14 @@ public class ConfigLoader {
                     throw new Exception("Invalid port number: " + port);
                 }
                 
-                // منع انهيار الخادم عند تكرار المنفذ داخل نفس الخادم
+                // Prevent server crash when a duplicate port is configured within the same server
                 if (!uniquePortsInServer.add(port)) {
                     System.err.println("⚠️ CONFIG WARNING: Duplicate port " + port + " configured for server '" + server.getServerName() + "'. Ignoring duplicate.");
                     portIterator.remove();
                     continue;
                 }
 
-                // منع انهيار الخادم عند وجود تضارب في أسماء الخوادم على نفس المنفذ
+                // Prevent server crash when there is a conflict of server names on the same port
                 String hostPortNameKey = server.getHost() + ":" + port + ":" + (server.getServerName() != null ? server.getServerName().trim() : "");
                 if (!serverKeys.add(hostPortNameKey)) {
                     System.err.println("⚠️ CONFIG WARNING: Conflict! Server name '" + server.getServerName() + "' is configured multiple times on port " + port + ". Ignoring conflict.");
