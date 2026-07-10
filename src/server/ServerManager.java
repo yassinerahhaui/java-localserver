@@ -1,12 +1,12 @@
 package server;
 
-import config.ServerConfig;
+// import config.ServerConfig;
+// import java.util.List;
 import config.ConfigLoader;
-import java.util.List;
 
 public class ServerManager {
-    private Server server;
-    private ConfigLoader configLoader;
+    private final Server server;
+    private final ConfigLoader configLoader;
 
     public ServerManager(String configPath) throws Exception {
         this.configLoader = ConfigLoader.fromFile(configPath);
@@ -22,11 +22,11 @@ public class ServerManager {
         server.start();
     }
 
-    public void shutdownAll() {
-        if (server != null) {
-            server.shutdown();
-        }
-    }
+    // public void shutdownAll() {
+    //     if (server != null) {
+    //         server.shutdown();
+    //     }
+    // }
 
     public Server getServer() {
         return server;

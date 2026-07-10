@@ -21,7 +21,7 @@
           "methods": ["GET"],
           "root": "./www",
           "default_file": "index.html",
-          "directory_listing": false
+          "directory_listing": true
         },
         {
           "path": "/upload",
@@ -55,7 +55,7 @@
       "ports": [9090],
       "server_name": "secondary-server",
       "default_server": false,
-      "client_max_body_size": "1MB",
+      "client_max_body_size": "2GB",
       "request_timeout_ms": 15000,
       "error_pages": {
         "400": "/error_pages/400.html",

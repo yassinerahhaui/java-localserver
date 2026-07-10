@@ -14,10 +14,10 @@ public class Main {
             ServerManager manager = new ServerManager(configPath);
             
             // Add shutdown hook
-            Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-                System.out.println("\nShutting down servers...");
-                manager.shutdownAll();
-            }));
+            // Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            //     System.out.println("\nShutting down servers...");
+            //     manager.shutdownAll();
+            // }));
 
             manager.startAll();
 

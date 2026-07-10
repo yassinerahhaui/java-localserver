@@ -41,37 +41,80 @@ public class Server {
     public void start() throws IOException {
         selector = Selector.open();
 
-        Set<Integer> uniquePorts = new HashSet<>();
+        // =========================================================
+        // AUDIT REQUIREMENT 1: Identify configuration errors WITHOUT CRASHING
+        // =========================================================
+        
+        Set<String> vhostTracker = new HashSet<>();
+        Set<Integer> uniquePortsToBind = new HashSet<>();
+        
         for (ServerConfig config : configs) {
-            uniquePorts.addAll(config.getPorts());
-        }
-
-        int successfullyBoundPorts = 0;
-        for (int port : uniquePorts) {
-            try {
-                ServerSocketChannel ssc = ServerSocketChannel.open();
-                ssc.configureBlocking(false);
-                
-                String bindHost = "0.0.0.0";
-                for (ServerConfig config : configs) {
-                    if (config.getPorts().contains(port)) {
-                        bindHost = config.getHost();
-                        break;
-                    }
+            String serverName = config.getServerName() != null ? config.getServerName() : "default_server";
+            Set<Integer> seenPortsInThisBlock = new HashSet<>();
+            
+            for (int port : config.getPorts()) {
+                // 1. Check for duplicates in the SAME block
+                if (!seenPortsInThisBlock.add(port)) {
+                    System.err.println("⚠️ CONFIG ERROR: Port " + port + " is duplicated within the same server block ('" + serverName + "'). Ignoring duplicate.");
+                    continue; // تخطي المنفذ المكرر دون إيقاف الخادم
                 }
                 
-                ssc.socket().bind(new java.net.InetSocketAddress(bindHost, port));
-                ssc.register(selector, SelectionKey.OP_ACCEPT);
-                serverSocketChannels.add(ssc);
-                successfullyBoundPorts++;
-                System.out.println("✓ Server listener bound to " + bindHost + ":" + port);
-            } catch (IOException e) {
-                System.err.println("✗ Failed to bind server to port " + port + ": " + e.getMessage());
+                // 2. Check for identical virtual hosts across blocks
+                String vhostKey = port + ":" + serverName;
+                if (!vhostTracker.add(vhostKey)) {
+                    System.err.println("⚠️ CONFIG ERROR: Conflict! Port " + port + " with server_name '" + serverName + "' is configured multiple times. Ignoring conflicting setup.");
+                    continue; // تخطي الإعداد المتضارب دون إيقاف الخادم
+                }
+                
+                uniquePortsToBind.add(port);
             }
         }
 
+        // =========================================================
+        // 3. Bind ports and log Virtual Hosting sharing logic
+        // =========================================================
+        Set<Integer> boundPorts = new HashSet<>();
+        int successfullyBoundPorts = 0;
+        
+        for (ServerConfig config : configs) {
+            String serverName = config.getServerName() != null ? config.getServerName() : "unknown_server";
+            
+            for (int port : config.getPorts()) {
+                // التأكد من أن هذا المنفذ لم يتم تخطيه في مرحلة فحص الأخطاء
+                if (!vhostTracker.contains(port + ":" + serverName)) {
+                    continue; 
+                }
+                
+                if (boundPorts.contains(port)) {
+                    System.out.println("ℹ️ INFO: Port " + port + " for '" + serverName + "' is already bound. Skipping physical bind (Sharing for Virtual Hosting).");
+                    continue; 
+                }
+
+                try {
+                    ServerSocketChannel ssc = ServerSocketChannel.open();
+                    ssc.configureBlocking(false);
+                    
+                    String bindHost = config.getHost() != null ? config.getHost() : "0.0.0.0";
+                    
+                    // Attempt to bind the port in the OS
+                    ssc.socket().bind(new java.net.InetSocketAddress(bindHost, port));
+                    ssc.register(selector, SelectionKey.OP_ACCEPT);
+                    serverSocketChannels.add(ssc);
+                    boundPorts.add(port);
+                    successfullyBoundPorts++;
+                    
+                    System.out.println("✓ Server listener bound to " + bindHost + ":" + port + " (Server: " + serverName + ")");
+                    
+                } catch (IOException e) {
+                    // DO NOT CRASH: Just print a warning and continue with other ports
+                    System.err.println("✗ WARNING: Skipping port " + port + " due to OS conflict: " + e.getMessage() + ". Server will continue with other working configurations.");
+                }
+            }
+        }
+
+        // Only shut down completely if NO ports could be bound at all
         if (successfullyBoundPorts == 0) {
-            throw new IOException("Could not bind to any configured ports");
+            throw new IOException("FATAL: Could not bind to ANY configured ports. Shutting down.");
         }
 
         running = true;

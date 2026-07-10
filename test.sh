@@ -13,7 +13,8 @@ SERVER_PID=$!
 trap "kill $SERVER_PID 2>/dev/null" EXIT
 
 # Wait for server to start and be ready
-sleep 3
+echo "Waiting for server to start..."
+sleep 2
 
 # Verify server is running
 for i in {1..5}; do
@@ -97,10 +98,14 @@ else
     ((FAIL++))
 fi
 
+# ==========================================
+# FIXED UPLOAD EXTRACTION LOGIC
+# ==========================================
 response_upload=$(curl -s -w "\n%{http_code}" -X POST -H "Content-Disposition: attachment; filename=\"test9090.txt\"" -d "hello 9090" "http://localhost:9090/upload")
 status_upload=$(echo "$response_upload" | tail -n1)
 upload_body=$(echo "$response_upload" | head -n -1)
-uploaded_filename=$(echo "$upload_body" | sed 's/File uploaded successfully: //')
+# التعديل هنا: استخراج الاسم بدقة باستخدام awk 
+uploaded_filename=$(echo "$upload_body" | awk -F'Name: ' '{print $2}' | tr -d '\r\n')
 
 if [ "$status_upload" = "201" ]; then
     echo -e "${GREEN}✓ PASS${NC} (POST http://localhost:9090/upload - HTTP 201)"
@@ -114,10 +119,10 @@ response_list=$(curl -s -w "\n%{http_code}" -H "Accept: application/json" "http:
 status_list=$(echo "$response_list" | tail -n1)
 content_list=$(echo "$response_list" | head -n -1)
 if [ "$status_list" = "200" ] && [[ "$content_list" == *"$uploaded_filename"* ]]; then
-    echo -e "${GREEN}✓ PASS${NC} (GET http://localhost:9090/upload [JSON] - HTTP 200)"
+    echo -e "${GREEN}✓ PASS${NC} (GET http://localhost:9090/upload [JSON/HTML] - HTTP 200)"
     ((PASS++))
 else
-    echo -e "${RED}✗ FAIL${NC} (GET http://localhost:9090/upload [JSON] - Expected 200 containing $uploaded_filename, got $status_list)"
+    echo -e "${RED}✗ FAIL${NC} (GET http://localhost:9090/upload [Directory Listing] - Expected 200 containing $uploaded_filename, got $status_list)"
     ((FAIL++))
 fi
 
@@ -137,9 +142,9 @@ echo -e "${GREEN}Passed: $PASS${NC}"
 echo -e "${RED}Failed: $FAIL${NC}"
 
 if [ $FAIL -eq 0 ]; then
-    echo -e "${GREEN}All tests passed!${NC}"
+    echo -e "${GREEN}All tests passed successfully! 🚀${NC}"
     exit 0
 else
-    echo -e "${RED}Some tests failed.${NC}"
+    echo -e "${RED}Some tests failed. Check the logs.${NC}"
     exit 1
 fi

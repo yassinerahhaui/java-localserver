@@ -28,7 +28,7 @@ public class Router {
         String path = request.getPath();
         String method = request.getMethod();
 
-        // 1. Intercept Admin & Metrics endpoints
+        // 0. Intercept Admin & Metrics endpoints
         if (path.equals("/admin") || path.equals("/metrics")) {
             return serveMetricsDashboard(request, activeServerConfig, session);
         }
@@ -78,28 +78,57 @@ public class Router {
 
         RouteConfig matchedRoute = findMatchingRoute(activeServerConfig, path);
 
+        // ==============================================================
+        // 1. CHECK PATH (404 Not Found)
+        // ==============================================================
         if (matchedRoute == null) {
             return ErrorHandler.handleError(activeServerConfig, 404, "Route not found: " + path, request);
         }
 
+        // Strict physical check to prevent Fallback Exploit on the root path
+        if (!matchedRoute.hasCgi() && !matchedRoute.isRedirect()) {
+            if (matchedRoute.getPath().equals("/") && !path.equals("/")) {
+                String relativePath = calculateRelativePath(path, matchedRoute.getPath());
+                String rootPath = matchedRoute.getRoot() != null ? matchedRoute.getRoot() : ".";
+                File targetResource = new File(rootPath, relativePath);
+                
+                if (method.equals("GET") || method.equals("HEAD")) {
+                    // For GET or HEAD requests, if the requested file does not physically exist -> 404
+                    if (!targetResource.exists()) {
+                        return ErrorHandler.handleError(activeServerConfig, 404, "Not Found: File does not exist", request);
+                    }
+                } else if (method.equals("POST") || method.equals("DELETE")) {
+                    // For POST/DELETE, do not allow using the root path as a fallback for random paths -> immediately return 404
+                    return ErrorHandler.handleError(activeServerConfig, 404, "Not Found: Exact endpoint required", request);
+                }
+            }
+        }
+
+        // ==============================================================
+        // 2. CHECK METHOD (405 Method Not Allowed)
+        // ==============================================================
         if (!matchedRoute.getMethods().contains(method)) {
             return ErrorHandler.handleError(activeServerConfig, 405, "Method " + method + " not allowed for " + path, request);
         }
 
+        // ==============================================================
+        // 3. CHECK SIZE (413 Payload Too Large)
+        // ==============================================================
+        long activeMaxBodySize = matchedRoute.getClientMaxBodySize();
+        if (activeMaxBodySize > 0 && request.getBody() != null && request.getBody().length > activeMaxBodySize) {
+            return ErrorHandler.handleError(activeServerConfig, 413, "Payload too large", request);
+        }
+
+
+        // ==============================================================
+        // Final request routing after passing all security checks
+        // ==============================================================
         if (matchedRoute.isRedirect()) {
             return handleRedirect(matchedRoute);
         }
 
         if (matchedRoute.hasCgi()) {
-            // Return null to signal to Server.java that this is a CGI request, 
-            // which will start the process asynchronously.
-            return null;
-        }
-
-        long activeMaxBodySize = matchedRoute.getClientMaxBodySize();
-
-        if (activeMaxBodySize > 0 && request.getBody().length > activeMaxBodySize) {
-            return ErrorHandler.handleError(activeServerConfig, 413, "Payload too large", request);
+            return null; // Signals Server.java to process CGI asynchronously
         }
 
         String relativePath = calculateRelativePath(path, matchedRoute.getPath());
@@ -180,29 +209,89 @@ public class Router {
         HttpResponse response = new HttpResponse();
 
         byte[] body = request.getBody();
-        if (body.length == 0) {
-            return ErrorHandler.handleError(config, 400, "Empty request body", request);
+        if (body == null || body.length == 0) {
+            return ErrorHandler.handleError(config, 400, "Bad Request: Empty request body", request);
         }
 
-        String origFilename = extractFilename(request.getHeader("content-disposition"));
-        String extension = "";
-        if (origFilename != null) {
-            int lastDot = origFilename.lastIndexOf('.');
-            if (lastDot >= 0) {
-                extension = origFilename.substring(lastDot);
+        // 1. Strict validation of the explicitly configured directory
+        String targetDir = route.getRoot();
+        if (targetDir == null || targetDir.trim().isEmpty()) {
+            return ErrorHandler.handleError(config, 403, "Forbidden: Upload directory is not explicitly configured for this route", request);
+        }
+
+        // 2. Path normalization to prevent Directory Traversal attacks
+        java.nio.file.Path dirPath = java.nio.file.Paths.get(targetDir).normalize().toAbsolutePath();
+
+        if (!java.nio.file.Files.exists(dirPath)) {
+            try {
+                java.nio.file.Files.createDirectories(dirPath);
+            } catch (java.io.IOException e) {
+                return ErrorHandler.handleError(config, 403, "Forbidden: Cannot create upload directory (Permission Denied)", request);
             }
+        } else if (!java.nio.file.Files.isDirectory(dirPath)) {
+            return ErrorHandler.handleError(config, 500, "Internal Server Error: Configured upload path is not a directory", request);
         }
-        String filename = java.util.UUID.randomUUID().toString() + extension;
 
-        String uploadPath = route.getRoot() + "/" + filename;
+        // =================================================================
+        // 3. Secure filename extraction and auto-renaming to prevent file overwrites
+        // =================================================================
+        String origFilename = extractFilename(request.getHeader("content-disposition"));
+        String filename;
+        String baseName;
+        String extension;
+        
+        if (origFilename != null && !origFilename.trim().isEmpty()) {
+            String cleanName = java.nio.file.Paths.get(origFilename).getFileName().toString();
+            int dotIndex = cleanName.lastIndexOf('.');
+            
+            // Separate the base filename from its extension
+            if (dotIndex > 0) {
+                baseName = cleanName.substring(0, dotIndex);
+                extension = cleanName.substring(dotIndex);
+            } else {
+                baseName = cleanName;
+                extension = "";
+            }
+            filename = cleanName;
+        } else {
+            baseName = "upload";
+            extension = ".dat";
+            filename = baseName + "_" + System.currentTimeMillis() + extension;
+        }
+
+        java.nio.file.Path uploadPath = dirPath.resolve(filename).normalize();
+
+        // Auto-rename loop: if the file already exists, append an incrementing number
+        int counter = 1;
+        while (java.nio.file.Files.exists(uploadPath)) {
+            filename = baseName + "_" + counter + extension;
+            uploadPath = dirPath.resolve(filename).normalize();
+            counter++;
+        }
+
+        // Final security check to prevent Directory Traversal
+        if (!uploadPath.startsWith(dirPath)) {
+            return ErrorHandler.handleError(config, 403, "Forbidden: Invalid file path attempted", request);
+        }
+        // =================================================================
+
         try {
-            java.nio.file.Files.createDirectories(java.nio.file.Paths.get(route.getRoot()));
-            java.nio.file.Files.write(java.nio.file.Paths.get(uploadPath), body);
+            java.nio.file.Files.write(uploadPath, body);
+            
             response.setStatusCode(201);
-            response.setBody("File uploaded successfully: " + filename);
             response.setHeader("content-type", "text/plain");
+            
+            // Append the exact filename to the location header
+            String locationPath = route.getPath();
+            if (!locationPath.endsWith("/")) locationPath += "/";
+            response.setHeader("location", locationPath + filename);
+            
+            // Notify the user of the final saved filename
+            response.setBody("File uploaded successfully. Name: " + filename);
+        } catch (java.nio.file.AccessDeniedException e) {
+            return ErrorHandler.handleError(config, 403, "Forbidden: Permission denied to write file", request);
         } catch (Exception e) {
-            return ErrorHandler.handleError(config, 500, "Upload failed", request);
+            return ErrorHandler.handleError(config, 500, "Internal Server Error: Upload failed", request);
         }
 
         return response;
@@ -220,13 +309,20 @@ public class Router {
             path = path.substring(1);
         }
 
-        String filePath = route.getRoot() + "/" + path;
+        // Ensure the root path falls back safely if undefined
+        String rootDir = route.getRoot() != null ? route.getRoot() : ".";
+        String filePath = rootDir + "/" + path;
+        
         try {
             java.nio.file.Files.delete(java.nio.file.Paths.get(filePath));
-            response.setStatusCode(204);
+            response.setStatusCode(204); // No Content - Successful deletion
             response.setBody(new byte[0]);
+        } catch (java.nio.file.NoSuchFileException e) {
+            return ErrorHandler.handleError(config, 404, "Not Found: File does not exist", request);
+        } catch (java.nio.file.AccessDeniedException e) {
+            return ErrorHandler.handleError(config, 403, "Forbidden: Permission denied to delete file", request);
         } catch (Exception e) {
-            return ErrorHandler.handleError(config, 404, "File not found", request);
+            return ErrorHandler.handleError(config, 500, "Internal Server Error during deletion", request);
         }
 
         return response;
@@ -330,7 +426,6 @@ public class Router {
         html.append("<header><div><h1>localserver Metrics Dashboard</h1><p style=\"margin: 5px 0 0 0; color: #94a3b8;\">Real-time web server telemetry</p></div>");
         html.append("<span class=\"badge\">Active</span></header>");
 
-        // Stats grid
         long uptimeSec = Metrics.getUptimeMs() / 1000;
         long days = uptimeSec / 86400;
         long hours = (uptimeSec % 86400) / 3600;
@@ -345,7 +440,6 @@ public class Router {
         html.append("<div class=\"card\"><h3>Active Sessions</h3><div class=\"card-val\">").append(SessionManager.getActiveSessionsCount()).append("</div></div>");
         html.append("</div>");
 
-        // Status code counts
         html.append("<div class=\"session-section\"><h2>HTTP Status Distribution</h2>");
         if (Metrics.getStatusCodeCounts().isEmpty()) {
             html.append("<p style=\"color: #94a3b8;\">No requests processed yet.</p>");
@@ -358,7 +452,6 @@ public class Router {
         }
         html.append("</div>");
 
-        // Current Session Details
         html.append("<div class=\"session-section\"><h2>Your Session (Cookie-based)</h2>");
         html.append("<p><strong>Session ID:</strong> <code style=\"background-color:#0f172a; padding: 4px 8px; border-radius:4px;\">").append(session.getId()).append("</code></p>");
         html.append("<p><strong>Page Visits in Session:</strong> ").append(session.getAttribute("visits")).append("</p>");
@@ -377,7 +470,6 @@ public class Router {
             html.append("</ul>");
         }
 
-        // Set Attribute Form & Destroy Session Button
         html.append("<div style=\"display: flex; gap: 20px; align-items: flex-end; margin-top: 20px;\">");
         html.append("<form action=\"/admin/set-attr\" method=\"POST\" style=\"display:flex; gap:10px; align-items:flex-end;\">");
         html.append("<div class=\"form-group\" style=\"margin:0;\"><label>Key</label><input type=\"text\" name=\"key\" required placeholder=\"e.g. username\"></div>");
@@ -388,7 +480,6 @@ public class Router {
         html.append("</div>");
         html.append("</div>");
 
-        // Active Sessions List
         html.append("<div class=\"session-section\"><h2>All Active Sessions</h2>");
         Map<String, Session> activeSessions = SessionManager.getActiveSessions();
         if (activeSessions.isEmpty()) {

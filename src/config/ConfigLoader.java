@@ -160,24 +160,37 @@ public class ConfigLoader {
             }
 
             Set<Integer> uniquePortsInServer = new HashSet<>();
-            for (Integer port : server.getPorts()) {
+            // استخدام Iterator لحذف المنافذ المكررة بأمان دون إيقاف الخادم
+            Iterator<Integer> portIterator = server.getPorts().iterator();
+            
+            while (portIterator.hasNext()) {
+                Integer port = portIterator.next();
+                
                 if (port <= 0 || port > 65535) {
                     throw new Exception("Invalid port number: " + port);
                 }
+                
+                // منع انهيار الخادم عند تكرار المنفذ داخل نفس الخادم
                 if (!uniquePortsInServer.add(port)) {
-                    throw new Exception("Duplicate port " + port + " configured for server " + server.getServerName());
+                    System.err.println("⚠️ CONFIG WARNING: Duplicate port " + port + " configured for server '" + server.getServerName() + "'. Ignoring duplicate.");
+                    portIterator.remove();
+                    continue;
                 }
 
+                // منع انهيار الخادم عند وجود تضارب في أسماء الخوادم على نفس المنفذ
                 String hostPortNameKey = server.getHost() + ":" + port + ":" + (server.getServerName() != null ? server.getServerName().trim() : "");
                 if (!serverKeys.add(hostPortNameKey)) {
-                    throw new Exception("Conflict: Server name '" + server.getServerName() + "' is configured multiple times on port " + port);
+                    System.err.println("⚠️ CONFIG WARNING: Conflict! Server name '" + server.getServerName() + "' is configured multiple times on port " + port + ". Ignoring conflict.");
+                    portIterator.remove();
+                    continue;
                 }
 
                 if (server.getDefaultServer()) {
                     if (portHasDefault.containsKey(port)) {
-                        throw new Exception("Conflict: Multiple default servers configured for port " + port);
+                        System.err.println("⚠️ CONFIG WARNING: Multiple default servers configured for port " + port + ". Keeping the first one.");
+                    } else {
+                        portHasDefault.put(port, true);
                     }
-                    portHasDefault.put(port, true);
                 }
             }
 
@@ -196,10 +209,10 @@ public class ConfigLoader {
                     if (route.hasCgi()) {
                         for (Map.Entry<String, String> cgiEntry : route.getCgi().entrySet()) {
                             if (cgiEntry.getKey() == null || cgiEntry.getKey().trim().isEmpty()) {
-                                                    throw new Exception("CGI extension cannot be empty");
+                                throw new Exception("CGI extension cannot be empty");
                             }
                             if (cgiEntry.getValue() == null || cgiEntry.getValue().trim().isEmpty()) {
-                                                    throw new Exception("CGI interpreter cannot be empty");
+                                throw new Exception("CGI interpreter cannot be empty");
                             }
                         }
                     }
