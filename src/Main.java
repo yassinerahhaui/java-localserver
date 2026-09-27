@@ -6,9 +6,9 @@ public class Main {
     public static void main(String[] args) {
         try {
             Server.startServer();
-            
         } catch (IOException e) {
-            // TODO: handle exception
+            System.err.println("Server encountered an error: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 }
