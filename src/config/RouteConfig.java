@@ -83,4 +83,30 @@ public class RouteConfig {
     public String toString() {
         return path + " " + methods;
     }
+
+    //  javac -d bin src/config/RouteConfig.java && java -cp bin config.RouteConfig 
+    // public static void main(String[] args) {
+    //     System.out.println("=== 🧪 Test Asta: RouteConfig ===");
+
+    //     RouteConfig route = new RouteConfig(
+    //         "/upload",
+    //         java.util.Arrays.asList("GET", "POST", "DELETE"),
+    //         "./uploads",
+    //         "index.html",
+    //         true,
+    //         20 * 1024 * 1024L,
+    //         null,
+    //         null
+    //     );
+
+    //     System.out.println("Path: " + route.getPath());
+    //     System.out.println("Methods: " + route.getMethods());
+    //     System.out.println("Root: " + route.getRoot());
+    //     System.out.println("Directory Listing: " + route.getDirectoryListing());
+    //     System.out.println("Max Body: " + route.getClientMaxBodySize() + " bytes");
+    //     System.out.println("Has CGI: " + route.hasCgi());
+    //     System.out.println("ToString: " + route); 
+
+    //     System.out.println("✅ RouteConfig Test  100%!");
+    // }
 }
