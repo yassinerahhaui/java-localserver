@@ -69,7 +69,7 @@ nc -zv localhost 8081   # Connection succeeded!
   - Parser Request-Line: `GET /index.html HTTP/1.1`
   - Parser les Headers: `Host`, `User-Agent`, `Connection`, etc.
   - Parser Query String: `?name=alice&age=20`
-- [ ] Créer `src/http/HttpResponse.java`:
+- [x] Créer `src/http/HttpResponse.java`:
   - Fields: `statusCode`, `statusMessage`, `headers`, `body`
   - Method `toBytes()` li kat-formati:
     `HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 12\r\n\r\nHello World!`
