@@ -62,7 +62,7 @@ nc -zv localhost 8081   # Connection succeeded!
   - `socketChannel.write(responseBuffer)`
 
 ### Asta (HTTP Request & Response)
-- [ ] Créer `src/http/HttpRequest.java`:
+- [x] Créer `src/http/HttpRequest.java`:
   - Fields: `method`, `uri`, `path`, `httpVersion`, `headers` (Map), `queryParams` (Map)
 - [ ] Créer `src/http/HttpParser.java`:
   - Detecter fin kay-salew les headers: `\r\n\r\n`
