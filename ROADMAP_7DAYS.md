@@ -102,7 +102,7 @@ curl -i http://localhost:8080/
   - Map dial MIME types (`.html`, `.css`, `.js`, `.png`, `.jpg`, `.json`, `.pdf`...)
   - Ila kan l-path dossier: qleb 3la `default_file` (index.html)
   - Ila ma kanx `default_file` w `directory_listing: true`: généri page HTML fiha la liste dial les fichiers m3a links
-- [ ] Créer `src/error/ErrorHandler.java`:
+- [x] Créer `src/error/ErrorHandler.java`:
   - Support dial custom error pages mn `config.json` (`400`, `403`, `404`, `405`, `413`, `500`)
   - Fallback l default HTML error page ila ma kanx custom page
 
