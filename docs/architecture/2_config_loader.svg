@@ -1,0 +1,116 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 720" width="100%" height="100%">
+  <defs>
+    <style>
+      .bg { fill: #0f172a; }
+      .title { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 22px; font-weight: bold; fill: #f8fafc; }
+      .subtitle { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 13px; fill: #94a3b8; }
+      .node-text { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 13px; font-weight: 600; fill: #ffffff; text-anchor: middle; }
+      .node-sub { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 11px; fill: #cbd5e1; text-anchor: middle; }
+      .badge-text { font-family: monospace; font-size: 11px; font-weight: bold; fill: #38bdf8; }
+      .arrow { stroke: #64748b; stroke-width: 2; fill: none; marker-end: url(#arrowhead); }
+      .arrow-green { stroke: #22c55e; stroke-width: 2; fill: none; marker-end: url(#arrowhead-green); }
+      .arrow-red { stroke: #ef4444; stroke-width: 2; fill: none; marker-end: url(#arrowhead-red); }
+    </style>
+    <marker id="arrowhead" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#64748b" />
+    </marker>
+    <marker id="arrowhead-green" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#22c55e" />
+    </marker>
+    <marker id="arrowhead-red" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#ef4444" />
+    </marker>
+    <filter id="shadow" x="-5%" y="-5%" width="110%" height="110%">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000000" flood-opacity="0.4"/>
+    </filter>
+  </defs>
+
+  <rect width="960" height="720" class="bg" rx="16"/>
+  <rect x="20" y="20" width="920" height="680" rx="12" fill="#1e293b" stroke="#334155" stroke-width="1.5" filter="url(#shadow)"/>
+
+  <!-- Header -->
+  <text x="50" y="60" class="title">⚙️ ConfigLoader Architecture</text>
+  <text x="50" y="85" class="subtitle">Multi-Server, Multi-Port Configuration Ingestion &amp; Integrity Validation</text>
+
+  <!-- Step 1: Disk File -->
+  <g transform="translate(380, 110)">
+    <rect width="200" height="50" rx="8" fill="#0369a1" stroke="#38bdf8" stroke-width="1.5"/>
+    <text x="100" y="28" class="node-text">config.json (File)</text>
+    <text x="100" y="42" class="node-sub">Read bytes with Files.readString()</text>
+  </g>
+
+  <line x1="480" y1="160" x2="480" y2="200" class="arrow"/>
+
+  <!-- Step 2: SimpleJsonParser Integration -->
+  <g transform="translate(350, 200)">
+    <rect width="260" height="50" rx="8" fill="#4c1d95" stroke="#a855f7" stroke-width="1.5"/>
+    <text x="130" y="28" class="node-text">SimpleJsonParser.parse()</text>
+    <text x="130" y="42" class="node-sub">Yields Map&lt;String, Object&gt; (AST)</text>
+  </g>
+
+  <line x1="480" y1="250" x2="480" y2="290" class="arrow"/>
+
+  <!-- Step 3: Iterate Servers -->
+  <g transform="translate(330, 290)">
+    <rect width="300" height="50" rx="8" fill="#1e1b4b" stroke="#818cf8" stroke-width="1.5"/>
+    <text x="150" y="28" class="node-text">Iterate "servers" JSON Array</text>
+    <text x="150" y="42" class="node-sub">Extract Server attributes &amp; Routes</text>
+  </g>
+
+  <!-- Branch to Server Attributes (Left) and Routes (Right) -->
+  <path d="M 400 340 L 220 380" class="arrow"/>
+  <path d="M 560 340 L 740 380" class="arrow"/>
+
+  <!-- Left Card: Server Attributes -->
+  <g transform="translate(80, 380)">
+    <rect width="280" height="150" rx="8" fill="#0f766e" stroke="#2dd4bf" stroke-width="1.5"/>
+    <text x="140" y="28" class="node-text">1. Server Level Config</text>
+    <text x="20" y="55" class="badge-text">• host: "127.0.0.1" (or "0.0.0.0")</text>
+    <text x="20" y="75" class="badge-text">• ports: [8080, 8081] (multi-port)</text>
+    <text x="20" y="95" class="badge-text">• server_name: "localhost"</text>
+    <text x="20" y="115" class="badge-text">• client_max_body_size: "10MB"</text>
+    <text x="20" y="135" class="badge-text">• error_pages: {404: "...", 500: "..."}</text>
+  </g>
+
+  <!-- Right Card: Route Objects -->
+  <g transform="translate(600, 380)">
+    <rect width="280" height="150" rx="8" fill="#155e75" stroke="#38bdf8" stroke-width="1.5"/>
+    <text x="140" y="28" class="node-text">2. Route Level Config</text>
+    <text x="20" y="55" class="badge-text">• path: "/", "/upload", "/cgi-bin"</text>
+    <text x="20" y="75" class="badge-text">• methods: ["GET", "POST", "DELETE"]</text>
+    <text x="20" y="95" class="badge-text">• root: "./www", default_file: "index.html"</text>
+    <text x="20" y="115" class="badge-text">• directory_listing: true / false</text>
+    <text x="20" y="135" class="badge-text">• cgi / redirect rules</text>
+  </g>
+
+  <!-- Merge into Validation -->
+  <path d="M 220 530 L 400 580" class="arrow"/>
+  <path d="M 740 530 L 560 580" class="arrow"/>
+
+  <!-- Step 4: Audit Validation Node -->
+  <g transform="translate(320, 565)">
+    <polygon points="160 0, 320 40, 160 80, 0 40" fill="#854d0e" stroke="#facc15" stroke-width="1.5"/>
+    <text x="160" y="38" class="node-text">Audit Integrity Check</text>
+    <text x="160" y="54" class="node-sub">Detect port collisions &amp; malformed paths</text>
+  </g>
+
+  <!-- Output Success & Fail -->
+  <path d="M 240 605 L 120 650" class="arrow-red"/>
+  <path d="M 400 645 L 480 675" class="arrow-green"/>
+
+  <!-- Invalid Config -->
+  <g transform="translate(40, 640)">
+    <rect width="180" height="45" rx="8" fill="#7f1d1d" stroke="#ef4444" stroke-width="1.5"/>
+    <text x="90" y="24" class="node-text" fill="#fca5a5">Validation Failed</text>
+    <text x="90" y="38" class="node-sub">Throws ConfigException</text>
+  </g>
+
+  <!-- Valid Config Result -->
+  <g transform="translate(340, 650)">
+    <rect width="280" height="45" rx="8" fill="#14532d" stroke="#4ade80" stroke-width="1.5"/>
+    <text x="140" y="24" class="node-text" fill="#bbf7d0">List&lt;ServerConfig&gt; Ready</text>
+    <text x="140" y="38" class="node-sub">Passed to Server.java for NIO socket binding</text>
+  </g>
+
+</svg>
+

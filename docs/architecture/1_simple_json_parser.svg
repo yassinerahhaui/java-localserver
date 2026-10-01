@@ -1,0 +1,132 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 700" width="100%" height="100%">
+  <defs>
+    <style>
+      .bg { fill: #0f172a; }
+      .title { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 22px; font-weight: bold; fill: #f8fafc; }
+      .subtitle { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 13px; fill: #94a3b8; }
+      .node-text { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 13px; font-weight: 600; fill: #ffffff; text-anchor: middle; }
+      .node-sub { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 11px; fill: #cbd5e1; text-anchor: middle; }
+      .badge-text { font-family: monospace; font-size: 12px; font-weight: bold; fill: #38bdf8; text-anchor: middle; }
+      .arrow { stroke: #64748b; stroke-width: 2; fill: none; marker-end: url(#arrowhead); }
+      .arrow-branch { stroke: #38bdf8; stroke-width: 2; fill: none; marker-end: url(#arrowhead-cyan); }
+    </style>
+    <marker id="arrowhead" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#64748b" />
+    </marker>
+    <marker id="arrowhead-cyan" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#38bdf8" />
+    </marker>
+    <filter id="shadow" x="-5%" y="-5%" width="110%" height="110%">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000000" flood-opacity="0.4"/>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="960" height="700" class="bg" rx="16"/>
+
+  <!-- Card Border -->
+  <rect x="20" y="20" width="920" height="660" rx="12" fill="#1e293b" stroke="#334155" stroke-width="1.5" filter="url(#shadow)"/>
+
+  <!-- Header -->
+  <text x="50" y="60" class="title">⚡ SimpleJsonParser Architecture</text>
+  <text x="50" y="85" class="subtitle">Recursive Descent JSON Scanner &amp; Object Builder (Zero External Libraries)</text>
+
+  <!-- Input Node -->
+  <g transform="translate(380, 115)">
+    <rect width="200" height="50" rx="8" fill="#0369a1" stroke="#38bdf8" stroke-width="1.5"/>
+    <text x="100" y="28" class="node-text">Raw JSON String</text>
+    <text x="100" y="42" class="node-sub">config.json data</text>
+  </g>
+
+  <!-- Arrow Down -->
+  <line x1="480" y1="165" x2="480" y2="205" class="arrow"/>
+
+  <!-- Scanner / pos tracker -->
+  <g transform="translate(350, 205)">
+    <rect width="260" height="65" rx="8" fill="#1e1b4b" stroke="#818cf8" stroke-width="1.5"/>
+    <text x="130" y="28" class="node-text">Scanner State Machine</text>
+    <text x="130" y="46" class="node-sub">pos pointer • skipWhitespace() • peek()</text>
+  </g>
+
+  <!-- Arrow Down to Dispatcher -->
+  <line x1="480" y1="270" x2="480" y2="315" class="arrow"/>
+
+  <!-- Dispatcher Node -->
+  <g transform="translate(360, 315)">
+    <rect width="240" height="50" rx="8" fill="#4c1d95" stroke="#a855f7" stroke-width="1.5"/>
+    <text x="120" y="28" class="node-text">parseValue() Dispatcher</text>
+    <text x="120" y="42" class="node-sub">Inspect peek() character</text>
+  </g>
+
+  <!-- Branch lines from parseValue -->
+  <path d="M 400 365 L 110 420" class="arrow-branch"/>
+  <path d="M 440 365 L 260 420" class="arrow-branch"/>
+  <path d="M 480 365 L 410 420" class="arrow-branch"/>
+  <path d="M 500 365 L 560 420" class="arrow-branch"/>
+  <path d="M 540 365 L 710 420" class="arrow-branch"/>
+  <path d="M 580 365 L 850 420" class="arrow-branch"/>
+
+  <!-- Branch 1: Object -->
+  <g transform="translate(40, 420)">
+    <rect width="140" height="85" rx="8" fill="#0f766e" stroke="#2dd4bf" stroke-width="1.5"/>
+    <text x="70" y="25" class="badge-text">peek() == '{'</text>
+    <text x="70" y="46" class="node-text">parseObject()</text>
+    <text x="70" y="65" class="node-sub">LinkedHashMap</text>
+    <text x="70" y="78" class="node-sub">(Preserves Route Order)</text>
+  </g>
+
+  <!-- Branch 2: Array -->
+  <g transform="translate(195, 420)">
+    <rect width="130" height="85" rx="8" fill="#0f766e" stroke="#2dd4bf" stroke-width="1.5"/>
+    <text x="65" y="25" class="badge-text">peek() == '['</text>
+    <text x="65" y="46" class="node-text">parseArray()</text>
+    <text x="65" y="65" class="node-sub">List&lt;Object&gt;</text>
+    <text x="65" y="78" class="node-sub">Recursive parse</text>
+  </g>
+
+  <!-- Branch 3: String -->
+  <g transform="translate(340, 420)">
+    <rect width="135" height="85" rx="8" fill="#155e75" stroke="#38bdf8" stroke-width="1.5"/>
+    <text x="67" y="25" class="badge-text">peek() == '"'</text>
+    <text x="67" y="46" class="node-text">parseString()</text>
+    <text x="67" y="65" class="node-sub">Handles escapes</text>
+    <text x="67" y="78" class="node-sub">(\", \\, \n, \t)</text>
+  </g>
+
+  <!-- Branch 4: Number -->
+  <g transform="translate(490, 420)">
+    <rect width="135" height="85" rx="8" fill="#854d0e" stroke="#facc15" stroke-width="1.5"/>
+    <text x="67" y="25" class="badge-text">peek() == '0-9/-'</text>
+    <text x="67" y="46" class="node-text">parseNumber()</text>
+    <text x="67" y="65" class="node-sub">Long / Double</text>
+    <text x="67" y="78" class="node-sub">Numeric parsing</text>
+  </g>
+
+  <!-- Branch 5: Boolean -->
+  <g transform="translate(640, 420)">
+    <rect width="135" height="85" rx="8" fill="#854d0e" stroke="#facc15" stroke-width="1.5"/>
+    <text x="67" y="25" class="badge-text">peek() == 't/f'</text>
+    <text x="67" y="46" class="node-text">parseBoolean()</text>
+    <text x="67" y="65" class="node-sub">true / false</text>
+    <text x="67" y="78" class="node-sub">matchLiteral()</text>
+  </g>
+
+  <!-- Branch 6: Null -->
+  <g transform="translate(790, 420)">
+    <rect width="120" height="85" rx="8" fill="#3f3f46" stroke="#a1a1aa" stroke-width="1.5"/>
+    <text x="60" y="25" class="badge-text">peek() == 'n'</text>
+    <text x="60" y="46" class="node-text">parseNull()</text>
+    <text x="60" y="65" class="node-sub">returns null</text>
+    <text x="60" y="78" class="node-sub">match("null")</text>
+  </g>
+
+  <!-- Bottom Utility: parseSize -->
+  <g transform="translate(250, 560)">
+    <rect width="460" height="80" rx="8" fill="#14532d" stroke="#4ade80" stroke-width="1.5"/>
+    <text x="230" y="28" class="node-text">⭐ Utility: parseSize(String sizeStr)</text>
+    <text x="230" y="48" class="node-sub">Converts Human-Readable units to Bytes for audit client_max_body_size</text>
+    <text x="230" y="66" class="node-sub" fill="#86efac">"10MB" → 10,485,760 bytes • "500KB" → 512,000 bytes • "2GB" → 2,147,483,648 bytes</text>
+  </g>
+
+</svg>
+
