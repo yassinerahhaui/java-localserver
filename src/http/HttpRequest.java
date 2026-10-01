@@ -1,7 +1,8 @@
 package http;
 
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
-
 
 public class HttpRequest {
     private String method;
@@ -19,7 +20,7 @@ public class HttpRequest {
         this.body = new byte[0];
     }
 
-    // Getters & Setters 
+    // Getters & Setters
     public String getMethod() {
         return method;
     }
@@ -37,9 +38,9 @@ public class HttpRequest {
         parseQueryString();
     }
 
-
     public String getPath() {
-        if (uri == null) return "/";
+        if (uri == null)
+            return "/";
         int q = uri.indexOf('?');
         return q >= 0 ? uri.substring(0, q) : uri;
     }
@@ -60,7 +61,8 @@ public class HttpRequest {
     }
 
     public String getHeader(String name) {
-        if (name == null) return null;
+        if (name == null)
+            return null;
         return headers.get(name.toLowerCase().trim());
     }
 
@@ -101,7 +103,8 @@ public class HttpRequest {
 
     private void parseQueryString() {
         queryParams.clear();
-        if (uri == null) return;
+        if (uri == null)
+            return;
 
         int q = uri.indexOf('?');
         if (q >= 0 && q + 1 < uri.length()) {
@@ -118,7 +121,7 @@ public class HttpRequest {
         }
     }
 
-    //  Body 
+    // Body
     public byte[] getBody() {
         return body;
     }
@@ -127,7 +130,7 @@ public class HttpRequest {
         this.body = body != null ? body : new byte[0];
     }
 
-    //  Helpers 
+    // Helpers
     public long getContentLength() {
         String cl = getHeader("content-length");
         if (cl != null) {
@@ -150,22 +153,10 @@ public class HttpRequest {
     }
 
     public static String urlDecode(String s) {
-        if (s == null) return "";
+        if (s == null)
+            return "";
         try {
-            StringBuilder sb = new StringBuilder();
-            for (int i = 0; i < s.length(); i++) {
-                char c = s.charAt(i);
-                if (c == '+') {
-                    sb.append(' ');
-                } else if (c == '%' && i + 2 < s.length()) {
-                    String hex = s.substring(i + 1, i + 3);
-                    sb.append((char) Integer.parseInt(hex, 16));
-                    i += 2;
-                } else {
-                    sb.append(c);
-                }
-            }
-            return sb.toString();
+            return URLDecoder.decode(s, StandardCharsets.UTF_8.name());
         } catch (Exception e) {
             return s;
         }
