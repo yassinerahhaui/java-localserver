@@ -180,13 +180,13 @@ curl -i -X DELETE http://localhost:8080/upload/test.txt   # 204 No Content
   - Check body size limit f wst l-chunks (ila fat limit -> 413)
 
 ### Asta (Cookies & Session Management)
-- [ ] Créer `src/utils/Session.java`:
+- [x] Créer `src/utils/Session.java`:
   - `id` (UUID), `creationTime`, `lastAccessedTime`, `attributes` (Map)
-- [ ] Créer `src/utils/SessionManager.java`:
+- [x] Créer `src/utils/SessionManager.java`:
   - `ConcurrentHashMap<String, Session>`
   - Method `createSession()`, `getSession(id)`, `removeSession(id)`
   - Expiration dial session mor 30 minutes d'inactivité
-- [ ] F `Server.java`:
+- [x] F `Server.java` / `Router.java`:
   - Qra header `Cookie: session_id=...`
   - Ila ma kanx wla expire -> dir `createSession()`
   - F response zid: `Set-Cookie: session_id=<UUID>; Path=/`

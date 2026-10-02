@@ -67,7 +67,12 @@ public class Router {
         }
 
         // Delegate to handler
-        return StaticFileHandler.handle(request, serverConfig, matchingRoute);
+        HttpResponse response = StaticFileHandler.handle(request, serverConfig, matchingRoute);
+
+        // Session & Cookie Tracking (Day 5)
+        utils.SessionManager.getInstance().handleRequestSession(request, response);
+
+        return response;
     }
 
     /**

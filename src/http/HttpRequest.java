@@ -70,14 +70,22 @@ public class HttpRequest {
 
     // Cookies
     public Map<String, String> getCookies() {
+        if (cookies.isEmpty() && getHeader("cookie") != null) {
+            parseCookies();
+        }
         return cookies;
     }
 
     public String getCookie(String name) {
+        if (name == null) return null;
+        if (cookies.isEmpty() && getHeader("cookie") != null) {
+            parseCookies();
+        }
         return cookies.get(name);
     }
 
     public void parseCookies() {
+        cookies.clear();
         String cookieHeader = getHeader("cookie");
         if (cookieHeader != null) {
             String[] pairs = cookieHeader.split(";");
