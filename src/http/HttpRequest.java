@@ -152,20 +152,7 @@ public class HttpRequest {
     public static String urlDecode(String s) {
         if (s == null) return "";
         try {
-            StringBuilder sb = new StringBuilder();
-            for (int i = 0; i < s.length(); i++) {
-                char c = s.charAt(i);
-                if (c == '+') {
-                    sb.append(' ');
-                } else if (c == '%' && i + 2 < s.length()) {
-                    String hex = s.substring(i + 1, i + 3);
-                    sb.append((char) Integer.parseInt(hex, 16));
-                    i += 2;
-                } else {
-                    sb.append(c);
-                }
-            }
-            return sb.toString();
+            return java.net.URLDecoder.decode(s, java.nio.charset.StandardCharsets.UTF_8.name());
         } catch (Exception e) {
             return s;
         }

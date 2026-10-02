@@ -98,7 +98,7 @@ curl -i http://localhost:8080/
   - Check `canonicalPath.startsWith(canonicalRoot)` bach t-mne3 `../../etc/passwd` -> Return `403 Forbidden`
 
 ### Asta (Static Files & Directory Listing)
-- [ ] Créer `src/handlers/StaticFileHandler.java`:
+- [x] Créer `src/handlers/StaticFileHandler.java`:
   - Map dial MIME types (`.html`, `.css`, `.js`, `.png`, `.jpg`, `.json`, `.pdf`...)
   - Ila kan l-path dossier: qleb 3la `default_file` (index.html)
   - Ila ma kanx `default_file` w `directory_listing: true`: généri page HTML fiha la liste dial les fichiers m3a links
@@ -136,12 +136,12 @@ curl -i -X DELETE http://localhost:8080/   # 405 Method Not Allowed
   - ⚠️ **Audit Rule:** Max 1 write call per select iteration!
 
 ### Asta (Upload & Delete Endpoints)
-- [ ] F `Router.java` method `handlePost()`:
+- [x] F `Router.java` method `handlePost()`:
   - Extracti smia dial l-fichier mn `Content-Disposition: filename="..."`
   - Ila ma kanx header, dir default name `upload_<timestamp>.dat`
   - Kteb raw bytes f dossier dial l-upload: `Files.write(targetPath, body)`
   - Jawb b **`201 Created`** m3a `Location: /upload/<filename>`
-- [ ] F `Router.java` method `handleDelete()`:
+- [x] F `Router.java` method `handleDelete()`:
   - Mseh l-fichier b `Files.delete(filePath)`
   - Ila t-mseh -> Return **`204 No Content`**
   - Ila l-fichier aslan ma kaynx -> Return **`404 Not Found`**

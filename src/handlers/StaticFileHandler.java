@@ -11,6 +11,8 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.text.SimpleDateFormat;
 import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class StaticFileHandler {
 
@@ -44,9 +46,9 @@ public class StaticFileHandler {
         MIME_TYPES.put("gz", "application/gzip");
     }
 
-    
-    //   Resolves the MIME type from a filename or path.
-    
+    /**
+     * Resolves the MIME type from a filename or path.
+     */
     public static String getMimeType(String filename) {
         if (filename == null) {
             return "application/octet-stream";
@@ -59,35 +61,60 @@ public class StaticFileHandler {
         return "application/octet-stream";
     }
 
-    
-    //  Main handler entrypoint 
-    
+    /**
+     * Main handler entrypoint: dispatches by HTTP method.
+     */
     public static HttpResponse handle(HttpRequest request, ServerConfig serverConfig, RouteConfig route) {
         if (route == null) {
-            return ErrorHandler.handleError(serverConfig, 404, "No matching route found for: " + request.getPath());
+            return ErrorHandler.handleError(serverConfig, 404, "No matching route found for: " + (request != null ? request.getPath() : ""));
         }
 
-        //  Check HTTP Method allowed on this route
+        // Check HTTP Method allowed on this route
+        String method = request != null && request.getMethod() != null ? request.getMethod().toUpperCase() : "GET";
         if (route.getMethods() != null && !route.getMethods().isEmpty()) {
-            if (!route.getMethods().contains(request.getMethod())) {
-                return ErrorHandler.handleError(serverConfig, 405, "Method " + request.getMethod() + " not allowed on this route");
+            if (!route.getMethods().contains(method)) {
+                return ErrorHandler.handleError(serverConfig, 405, "Method " + method + " not allowed on this route");
             }
         }
 
-        //  Handle HTTP Redirections (e.g. 301 Moved Permanently)
+        // Handle HTTP Redirections (e.g. 301 / 302)
         if (route.isRedirect()) {
-            Map<String, Object> redir = route.getRedirect();
-            int code = redir.containsKey("code") ? ((Number) redir.get("code")).intValue() : 301;
-            String url = redir.containsKey("url") ? (String) redir.get("url") : "/";
-            HttpResponse resp = new HttpResponse();
-            resp.setStatusCode(code);
-            resp.setHeader("Location", url);
-            resp.setHeader("Content-Type", "text/plain; charset=UTF-8");
-            resp.setBody("Redirecting to " + url);
-            return resp;
+            return handleRedirect(route);
         }
 
-        //  Resolve relative path within route root
+        return switch (method) {
+            case "GET", "HEAD" -> handleGet(request, serverConfig, route);
+            case "POST" -> handlePost(request, serverConfig, route);
+            case "DELETE" -> handleDelete(request, serverConfig, route);
+            default -> ErrorHandler.handleError(serverConfig, 501, "Method " + method + " not implemented");
+        };
+    }
+
+    /**
+     * Handles HTTP Redirections from RouteConfig.
+     */
+    public static HttpResponse handleRedirect(RouteConfig route) {
+        Map<String, Object> redir = route.getRedirect();
+        int code = 301;
+        if (redir.containsKey("status")) {
+            code = ((Number) redir.get("status")).intValue();
+        } else if (redir.containsKey("code")) {
+            code = ((Number) redir.get("code")).intValue();
+        }
+
+        String url = redir.containsKey("url") ? (String) redir.get("url") : "/";
+        HttpResponse resp = new HttpResponse();
+        resp.setStatusCode(code);
+        resp.setHeader("Location", url);
+        resp.setHeader("Content-Type", "text/plain; charset=UTF-8");
+        resp.setBody("Redirecting to " + url);
+        return resp;
+    }
+
+    /**
+     * Handles GET and HEAD requests for static files and directory listings.
+     */
+    public static HttpResponse handleGet(HttpRequest request, ServerConfig serverConfig, RouteConfig route) {
         String reqPath = request.getPath();
         String routePath = route.getPath();
 
@@ -103,15 +130,15 @@ public class StaticFileHandler {
         File file = new File(rootDir, relativePath);
 
         try {
-            //  Security Check: Path Traversal Protection
+            // Security Check: Path Traversal Protection
             File canonicalRoot = new File(rootDir).getCanonicalFile();
             File canonicalFile = file.getCanonicalFile();
 
-            if (!canonicalFile.getPath().startsWith(canonicalRoot.getPath())) {
+            if (!canonicalFile.toPath().startsWith(canonicalRoot.toPath())) {
                 return ErrorHandler.handleError(serverConfig, 403, "Access Denied: Path traversal detected");
             }
 
-            //  Check existence
+            // Check existence
             if (!canonicalFile.exists()) {
                 return ErrorHandler.handleError(serverConfig, 404, "File Not Found: " + reqPath);
             }
@@ -148,7 +175,168 @@ public class StaticFileHandler {
         }
     }
 
- 
+    /**
+     * Handles POST file upload requests (Day 4 task).
+     */
+    public static HttpResponse handlePost(HttpRequest request, ServerConfig serverConfig, RouteConfig route) {
+        // 1. Check Body Size Limit
+        long maxBodySize = route.getClientMaxBodySize() > 0 
+                ? route.getClientMaxBodySize() 
+                : (serverConfig != null ? serverConfig.getClientMaxBodySize() : 0);
+
+        byte[] body = request.getBody() != null ? request.getBody() : new byte[0];
+        if (maxBodySize > 0 && body.length > maxBodySize) {
+            return ErrorHandler.handleError(serverConfig, 413, 
+                    "Payload Too Large: Body size (" + body.length + " bytes) exceeds maximum allowed (" + maxBodySize + " bytes)");
+        }
+
+        // 2. Extract Filename
+        String filename = extractFilename(request, route);
+
+        // 3. Resolve destination path
+        String rootDir = route.getRoot() != null ? route.getRoot() : "./uploads";
+        File dir = new File(rootDir);
+        if (!dir.exists()) {
+            dir.mkdirs();
+        }
+
+        File targetFile = new File(dir, filename);
+
+        try {
+            File canonicalRoot = dir.getCanonicalFile();
+            File canonicalTarget = targetFile.getCanonicalFile();
+
+            // Security: Path Traversal Protection
+            if (!canonicalTarget.toPath().startsWith(canonicalRoot.toPath())) {
+                return ErrorHandler.handleError(serverConfig, 403, "Access Denied: Path traversal detected in upload filename");
+            }
+
+            // 4. Write bytes to disk
+            Files.write(canonicalTarget.toPath(), body);
+
+            // 5. Build 201 Created Response with Location header
+            String routePath = route.getPath();
+            String location = routePath.endsWith("/") ? routePath + filename : routePath + "/" + filename;
+
+            HttpResponse response = new HttpResponse();
+            response.setStatusCode(201);
+            response.setHeader("Location", location);
+            response.setHeader("Content-Type", "text/plain; charset=UTF-8");
+            response.setBody("File uploaded successfully: " + filename + "\n");
+            return response;
+
+        } catch (SecurityException e) {
+            return ErrorHandler.handleError(serverConfig, 403, "Access Denied: Permission denied while writing file");
+        } catch (IOException e) {
+            return ErrorHandler.handleError(serverConfig, 500, "Internal Server Error saving file: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Handles DELETE file deletion requests (Day 4 task).
+     */
+    public static HttpResponse handleDelete(HttpRequest request, ServerConfig serverConfig, RouteConfig route) {
+        String reqPath = request.getPath();
+        String routePath = route.getPath();
+
+        String relativePath = reqPath;
+        if (relativePath.startsWith(routePath)) {
+            relativePath = relativePath.substring(routePath.length());
+        }
+        if (relativePath.startsWith("/")) {
+            relativePath = relativePath.substring(1);
+        }
+
+        if (relativePath.trim().isEmpty()) {
+            return ErrorHandler.handleError(serverConfig, 400, "Bad Request: No file specified to delete");
+        }
+
+        String rootDir = route.getRoot() != null ? route.getRoot() : ".";
+        File file = new File(rootDir, relativePath);
+
+        try {
+            File canonicalRoot = new File(rootDir).getCanonicalFile();
+            File canonicalFile = file.getCanonicalFile();
+
+            // Security: Path Traversal Protection
+            if (!canonicalFile.toPath().startsWith(canonicalRoot.toPath())) {
+                return ErrorHandler.handleError(serverConfig, 403, "Access Denied: Path traversal detected");
+            }
+
+            // Check existence
+            if (!canonicalFile.exists()) {
+                return ErrorHandler.handleError(serverConfig, 404, "File Not Found: " + reqPath);
+            }
+
+            // Check if directory
+            if (canonicalFile.isDirectory()) {
+                return ErrorHandler.handleError(serverConfig, 403, "Forbidden: Cannot delete a directory");
+            }
+
+            // Check write/delete permissions
+            if (!canonicalFile.canWrite()) {
+                return ErrorHandler.handleError(serverConfig, 403, "Forbidden: Permission Denied to delete file");
+            }
+
+            // Delete file
+            boolean deleted = canonicalFile.delete();
+            if (deleted) {
+                HttpResponse response = new HttpResponse();
+                response.setStatusCode(204);
+                response.setBody("");
+                return response;
+            } else {
+                return ErrorHandler.handleError(serverConfig, 500, "Internal Server Error: Failed to delete file");
+            }
+
+        } catch (SecurityException e) {
+            return ErrorHandler.handleError(serverConfig, 403, "Forbidden: Access Denied to delete file");
+        } catch (IOException e) {
+            return ErrorHandler.handleError(serverConfig, 500, "Internal Server Error: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Extracts filename from Content-Disposition header, X-File-Name, URI subpath, or generates a timestamp fallback.
+     */
+    public static String extractFilename(HttpRequest request, RouteConfig route) {
+        String contentDisp = request.getHeader("content-disposition");
+        if (contentDisp != null) {
+            Pattern pattern = Pattern.compile("filename\\*?=(?:\"([^\"]*)\"|([^;\\s]+))", Pattern.CASE_INSENSITIVE);
+            Matcher matcher = pattern.matcher(contentDisp);
+            if (matcher.find()) {
+                String name = matcher.group(1) != null ? matcher.group(1) : matcher.group(2);
+                if (name != null && !name.trim().isEmpty()) {
+                    name = name.trim();
+                    if (name.toLowerCase().startsWith("utf-8''")) {
+                        name = HttpRequest.urlDecode(name.substring(7));
+                    }
+                    return new File(name).getName();
+                }
+            }
+        }
+
+        String xFileName = request.getHeader("x-file-name");
+        if (xFileName != null && !xFileName.trim().isEmpty()) {
+            return new File(xFileName.trim()).getName();
+        }
+
+        String reqPath = request.getPath();
+        String routePath = route.getPath();
+        String relative = reqPath;
+        if (relative.startsWith(routePath)) {
+            relative = relative.substring(routePath.length());
+        }
+        if (relative.startsWith("/")) {
+            relative = relative.substring(1);
+        }
+        if (!relative.isEmpty() && !relative.endsWith("/")) {
+            return new File(relative).getName();
+        }
+
+        return "upload_" + System.currentTimeMillis() + ".dat";
+    }
+
     public static HttpResponse serveFile(File file, ServerConfig serverConfig) {
         if (!file.canRead()) {
             return ErrorHandler.handleError(serverConfig, 403, "Permission Denied: Cannot read file " + file.getName());
@@ -167,7 +355,9 @@ public class StaticFileHandler {
         }
     }
 
-    //   Generates HTML directory listing page for directory requests.
+    /**
+     * Generates HTML directory listing page for directory requests.
+     */
     public static HttpResponse generateDirectoryListing(File dir, String uriPath) {
         StringBuilder sb = new StringBuilder();
         sb.append("<!DOCTYPE html>\n");
