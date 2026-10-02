@@ -2,6 +2,7 @@ package http;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 
 public class HttpParser {
     public static HttpRequest parse(ByteBuffer buffer) throws Exception {
@@ -35,7 +36,35 @@ public class HttpParser {
         request.setUri(requestLine[1]);
         request.setHttpVersion(requestLine[2]);
 
-        return null;
+        // Parse individual headers
+        for (int i = 1; i < lines.length; i++) {
+            String line = lines[i];
+            if (line.isEmpty()) continue;
+
+            int colonIndex = line.indexOf(':');
+            if (colonIndex > 0) {
+                String name = line.substring(0, colonIndex);
+                String value = line.substring(colonIndex + 1);
+                request.addHeader(name, value);
+            }
+        }
+        request.parseCookies();
+
+        // 3. Parse Body (if Content-Length is provided)
+        int bodyStartIndex = headerEndIndex + 4; // Skip \r\n\r\n
+        long contentLength = request.getContentLength();
+
+        if (contentLength > 0) {
+            // Check if we have received the full body
+            int availableBodyBytes = data.length - bodyStartIndex;
+
+            if (availableBodyBytes < contentLength) return null;
+
+            byte[] bodyBytes = Arrays.copyOfRange(data, bodyStartIndex, bodyStartIndex + (int) contentLength);
+            request.setBody(bodyBytes);
+        }
+
+        return request;
     }
 
     private static int findHeaderEnd(byte[] data) {
