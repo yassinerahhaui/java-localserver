@@ -57,7 +57,6 @@ public class SimpleJsonParser {
         throw new RuntimeException("Syntax Error f JSON 3nd position " + pos + ": 7arf ghrib '" + c + "'");
     }
 
-    @SuppressWarnings("unchecked")
     public Map<String, Object> parseObject() {
         match('{');
         Map<String, Object> map = new LinkedHashMap<>();
