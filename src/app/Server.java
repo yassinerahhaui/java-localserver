@@ -64,55 +64,60 @@ public class Server {
         SocketChannel client = server.accept();
         if (client != null) {
             client.configureBlocking(false);
-            client.register(selector, SelectionKey.OP_READ);
+            SelectionKey clientKey = client.register(selector, SelectionKey.OP_READ);
+            clientKey.attach(new ClientConnection(client));
             System.out.println("New connection accepted from: " + client.getRemoteAddress());
         }
     }
 
     public void readRequest(SelectionKey key) throws IOException {
-        // handle request
-        SocketChannel client = (SocketChannel) key.channel();
+        // 1. Get the attached ClientConnection
+        ClientConnection conn = (ClientConnection) key.attachment();
+        SocketChannel client = conn.getChannel();
 
         // allocate buffer
-        ByteBuffer buffer = ByteBuffer.allocate(1024);
+        ByteBuffer buffer = conn.getReadBuffer();
+
+        buffer.clear();
         int bytesRead = client.read(buffer);
 
         if (bytesRead == -1) {
-            client.close();
+            conn.close();
+            key.cancel();
             System.out.println("Connection closed by client.");
             return;
         }
 
         if (bytesRead > 0) {
             buffer.flip();
-
-            String requestStr = new String(buffer.array(), 0, bytesRead);
-            System.out.println("--- Received HTTP Request ---\n" + requestStr);
-
-            key.interestOps(SelectionKey.OP_WRITE);
+            // 2. Append newly read bytes to the client's accumulator
+            conn.getRequestData().write(buffer.array(), 0, bytesRead);
+            // 3. Check if we received at least the full HTTP headers
+            if (conn.getState() == ClientConnection.State.READING_HEADERS && conn.areHeadersComplete()) {
+                conn.setState(ClientConnection.State.WRITING_RESPONSE);
+                String httpResponse = "HTTP/1.1 200 OK\r\nContent-Length: 13\r\n\r\nHello, World!";
+                conn.setWriteBuffer(ByteBuffer.wrap(httpResponse.getBytes()));
+                key.interestOps(SelectionKey.OP_WRITE);
+            }
         }
     }
 
     // Helper method to send a simple response
     private void writeResponse(SelectionKey key) throws IOException {
-        SocketChannel client = (SocketChannel) key.channel();
+        ClientConnection conn = (ClientConnection) key.attachment();
+        SocketChannel client = conn.getChannel();
+        ByteBuffer buffer = conn.getWriteBuffer();
+
+        if (buffer != null && buffer.hasRemaining()) {
+            client.write(buffer);
+        }
         
-        String httpResponse = """
-                HTTP/1.1 200 OK\r
-                Content-Type: text/plain\r
-                Content-Length: 13\r
-                \r
-                Hello, World!""";
-                
-        ByteBuffer responseBuffer = ByteBuffer.wrap(httpResponse.getBytes());
-        
-        // Write the buffer to the channel
-        client.write(responseBuffer);
-        
-        // In HTTP/1.1 (Keep-Alive), we shouldn't close the connection immediately.
-        // But for this basic test, we will switch back to OP_READ to wait for another request.
-        // If it was a "Connection: close" request, we would do: client.close();
-        key.interestOps(SelectionKey.OP_READ);
-        System.out.println("--- Response sent successfully ---");
+        // If we finished writing the whole response
+        if (buffer == null || !buffer.hasRemaining()) {
+            System.out.println("--- Response sent successfully ---");
+
+            conn.close();
+            key.cancel();
+        }
     }
 }
