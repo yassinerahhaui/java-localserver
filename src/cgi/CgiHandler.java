@@ -15,9 +15,6 @@ public class CgiHandler {
 
     private static final int CGI_TIMEOUT_SECONDS = 5;
 
-    /**
-     * Checks whether the given request matches a CGI script defined in the route.
-     */
     public static boolean isCgiRequest(RouteConfig route, String requestPath) {
         if (route == null || !route.hasCgi() || requestPath == null) {
             return false;
@@ -31,10 +28,6 @@ public class CgiHandler {
         return false;
     }
 
-    /**
-     * Executes the CGI script using ProcessBuilder, feeds stdin, handles timeout,
-     * and parses the resulting CGI output into an HttpResponse.
-     */
     public static HttpResponse executeCgi(HttpRequest request, ServerConfig serverConfig, RouteConfig route) {
         String reqPath = request.getPath();
         String routePath = route.getPath();
@@ -126,7 +119,7 @@ public class CgiHandler {
             // Launch process
             Process process = pb.start();
 
-            // Feed request body to CGI stdin if POST/PUT
+         
             byte[] body = request.getBody();
             if (body != null && body.length > 0) {
                 try (OutputStream os = process.getOutputStream()) {
@@ -177,9 +170,6 @@ public class CgiHandler {
         }
     }
 
-    /**
-     * Parses raw CGI output, separating headers from the body and populating an HttpResponse.
-     */
     public static HttpResponse parseCgiResponse(byte[] cgiOutput, ServerConfig serverConfig) {
         if (cgiOutput == null || cgiOutput.length == 0) {
             HttpResponse emptyResp = new HttpResponse();
@@ -230,7 +220,7 @@ public class CgiHandler {
                 String value = line.substring(colon + 1).trim();
 
                 if (name.equalsIgnoreCase("Status")) {
-                    // E.g. Status: 200 OK or Status: 404
+                    //  Status: 200 OK or Status: 404
                     String[] parts = value.split("\\s+", 2);
                     try {
                         int code = Integer.parseInt(parts[0]);
@@ -242,7 +232,7 @@ public class CgiHandler {
                         response.setStatusCode(302);
                     }
                 } else if (name.equalsIgnoreCase("Set-Cookie")) {
-                    // e.g. Set-Cookie: key=val; Path=/
+                    // Set-Cookie: key=val; Path=/
                     int eq = value.indexOf('=');
                     if (eq > 0) {
                         String cookieName = value.substring(0, eq).trim();
