@@ -66,8 +66,13 @@ public class Router {
             }
         }
 
-        // Delegate to handler
-        HttpResponse response = StaticFileHandler.handle(request, serverConfig, matchingRoute);
+        // Delegate to handler (CGI or Static Files)
+        HttpResponse response;
+        if (matchingRoute.hasCgi() && cgi.CgiHandler.isCgiRequest(matchingRoute, request.getPath())) {
+            response = cgi.CgiHandler.executeCgi(request, serverConfig, matchingRoute);
+        } else {
+            response = StaticFileHandler.handle(request, serverConfig, matchingRoute);
+        }
 
         // Session & Cookie Tracking (Day 5)
         utils.SessionManager.getInstance().handleRequestSession(request, response);

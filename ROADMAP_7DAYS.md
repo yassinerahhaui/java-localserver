@@ -223,12 +223,12 @@ curl -i -X POST -H "Transfer-Encoding: chunked" \
   - Timeout dial 5s: ila فات 5 ثواني dir `process.destroyForcibly()` w rdd **`504 Gateway Timeout`**
 
 ### Asta (CGI Scripts & Response Parser)
-- [ ] Créer `cgi-bin/hello.py`:
+- [x] Créer `cgi-bin/hello.py`:
   - Script Python kay-qra `sys.stdin` ila kan POST
   - Kay-tbe3 headers: `Status: 200 OK\r\nContent-Type: application/json\r\n\r\n`
   - Kay-tbe3 JSON fih server info w l-body li wsel
-- [ ] Créer `cgi-bin/info.sh` (Bonus dial 2nd CGI interpreter - Bash)
-- [ ] F `CgiHandler.java` method `parseCgiResponse()`:
+- [x] Créer `cgi-bin/info.sh` (Bonus dial 2nd CGI interpreter - Bash)
+- [x] F `CgiHandler.java` method `parseCgiResponse()`:
   - Ferreq CGI headers mn CGI body
   - Parse `Status: <code>` w `Content-Type: <type>`
 
