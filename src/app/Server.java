@@ -22,7 +22,7 @@ public class Server {
 
         System.out.println("Server is running on: http://localhost:8080");
 
-        while(true) {
+        while (true) {
             selector.select();
 
             Set<SelectionKey> selectedKeys = selector.selectedKeys();
@@ -33,7 +33,8 @@ public class Server {
 
                 iter.remove();
 
-                if (!key.isValid()) continue;
+                if (!key.isValid())
+                    continue;
 
                 if (key.isAcceptable()) {
                     // accept connection
@@ -84,16 +85,16 @@ public class Server {
 
     // Helper method to send a simple response
     private static void sendBasicResponse(SocketChannel client) throws IOException {
-        String httpResponse = "HTTP/1.1 200 OK\r\n"
-                + "Content-Type: text/plain\r\n"
-                + "Content-Length: 13\r\n"
-                + "\r\n"
-                + "Hello, World!";
-        
-        ByteBuffer responseBuffer = ByteBuffer.wrap(httpResponse.getBytes());
-        client.write(responseBuffer);
-        
-        // Close the client connection after sending the response (Simple test for now)
-        client.close();
+        try (client) {
+            String httpResponse = """
+                    HTTP/1.1 200 OK\r
+                    Content-Type: text/plain\r
+                    Content-Length: 13\r
+                    \r
+                    Hello, World!""";
+            ByteBuffer responseBuffer = ByteBuffer.wrap(httpResponse.getBytes());
+            client.write(responseBuffer);
+            // Close the client connection after sending the response (Simple test for now)
+        }
     }
 }
