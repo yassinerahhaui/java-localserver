@@ -17,14 +17,14 @@ Plan m-fssel l 2 développeurs (**Dev A** w **Asta**) bach t-bniw l-Web Server d
 
 > **🎯 L-Hadaf:** Server kay-tla3 f multiple ports (NIO Selector) w kay-qra `config.json` bla ma y-crachi.
 
-### Dev A (Network Core)
-- [ ] Créer `src/server/Server.java`
-- [ ] Fte7 `Selector` wa7ed: `Selector.open()`
-- [ ] Fte7 `ServerSocketChannel` l kolla port f config
-- [ ] Rdd les channels Non-Blocking: `ssc.configureBlocking(false)`
-- [ ] Enregistrer les channels f l-selector b `SelectionKey.OP_ACCEPT`
-- [ ] Bni l-event loop: `while (running) { selector.select(); ... }`
-- [ ] Implementer `handleAccept()`: mlli yji client jdid, rddo non-blocking w registersih b `OP_READ`
+### Yassine (Network Core)
+- [x] Créer `src/server/Server.java`
+- [x] Fte7 `Selector` wa7ed: `Selector.open()`
+- [x] Fte7 `ServerSocketChannel` l kolla port f config
+- [x] Rdd les channels Non-Blocking: `ssc.configureBlocking(false)`
+- [x] Enregistrer les channels f l-selector b `SelectionKey.OP_ACCEPT`
+- [x] Bni l-event loop: `while (running) { selector.select(); ... }`
+- [x] Implementer `handleAccept()`: mlli yji client jdid, rddo non-blocking w registersih b `OP_READ`
 
 ### Asta (Config & Models)
 - [x] Gérer `config.json` (host, ports, routes, error pages, client_max_body_size)
@@ -49,26 +49,27 @@ nc -zv localhost 8081   # Connection succeeded!
 > **🎯 L-Hadaf:** Client kay-sift request b `curl`, l-server kay-fhemha w kay-rejje3 response HTTP/1.1 s7i7a.
 
 ### Dev A (Connection State & Reading)
-- [ ] Créer classe `ClientConnection` (Attachement f `SelectionKey`):
+- [x] Créer classe `ClientConnection` (Attachement f `SelectionKey`):
   - Buffer dial l-qraya (`ByteBuffer`)
   - Ch7al dial data t-qrat
   - State: headers kamlin wla baqin
-- [ ] Implementer `handleRead(SelectionKey key)`:
+- [x] Implementer `handleRead(SelectionKey key)`:
   - Dir `socketChannel.read(buffer)`
   - Handle `read == -1` (Client disconnect) -> sdd socket w cancel key
   - Handle `IOException` -> sdd socket w cancel key
-- [ ] Mlli t-tsala request, beddel interest dial key l `OP_WRITE`
-- [ ] Implementer `handleWrite(SelectionKey key)`:
+- [x] Mlli t-tsala request, beddel interest dial key l `OP_WRITE`
+- [x] Implementer `handleWrite(SelectionKey key)`:
   - `socketChannel.write(responseBuffer)`
-
-### Asta (HTTP Request & Response)
-- [x] Créer `src/http/HttpRequest.java`:
-  - Fields: `method`, `uri`, `path`, `httpVersion`, `headers` (Map), `queryParams` (Map)
-- [ ] Créer `src/http/HttpParser.java`:
+- [x] Créer `src/http/HttpParser.java`:
   - Detecter fin kay-salew les headers: `\r\n\r\n`
   - Parser Request-Line: `GET /index.html HTTP/1.1`
   - Parser les Headers: `Host`, `User-Agent`, `Connection`, etc.
   - Parser Query String: `?name=alice&age=20`
+
+### Asta (HTTP Request & Response)
+- [x] Créer `src/http/HttpRequest.java`:
+  - Fields: `method`, `uri`, `path`, `httpVersion`, `headers` (Map), `queryParams` (Map)
+
 - [x] Créer `src/http/HttpResponse.java`:
   - Fields: `statusCode`, `statusMessage`, `headers`, `body`
   - Method `toBytes()` li kat-formati:
