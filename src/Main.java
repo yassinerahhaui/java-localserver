@@ -14,14 +14,20 @@ public class Main {
             String configPath = args.length > 0 ? args[0] : "config.json";
             ConfigLoader loader = ConfigLoader.fromFile(configPath);
             System.out.println("✓ Configuration loaded successfully! (" + loader.getServers().size() + " servers configured)");
+            
+            // Get the list of server configurations
             List<ServerConfig> servers = loader.getServers();
             
+            // Collect all unique ports to avoid binding errors
             Set<Integer> uniquePorts = new HashSet<>();
             for (ServerConfig serverConfig : servers) {
                 uniquePorts.addAll(serverConfig.getPorts());
             }
 
-            Server server = new Server();
+            // Pass the 'servers' list to the Server constructor
+            Server server = new Server(servers);
+
+            // Start the server on all unique ports
             server.startServer(new ArrayList<>(uniquePorts));
         } catch (Exception e) {
             System.err.println("Server encountered an error: " + e.getMessage());
