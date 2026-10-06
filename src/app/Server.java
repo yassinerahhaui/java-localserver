@@ -1,5 +1,11 @@
 package app;
 
+import http.HttpParser;
+import http.HttpRequest;
+import http.HttpResponse;
+import config.ServerConfig;
+import router.Router;
+
 import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
@@ -13,24 +19,25 @@ import java.net.InetSocketAddress;
 
 public class Server {
     private Selector selector;
+    private List<ServerConfig> configs; // The list of servers from config.json
 
-    public Server() throws IOException {
+    public Server(List<ServerConfig> configs) throws IOException {
         this.selector = Selector.open();
+        this.configs = configs;
     }
 
     public void startServer(List<Integer> ports) throws IOException {
+        // Bind all unique ports
         for (int port : ports) {
             ServerSocketChannel serverSocket = ServerSocketChannel.open();
             serverSocket.bind(new InetSocketAddress(port));
-    
-            serverSocket.configureBlocking(false);
-    
+            serverSocket.configureBlocking(false); // AUDIT: Non-blocking
             serverSocket.register(selector, SelectionKey.OP_ACCEPT);
-    
+            
             System.out.println("Server is running on: http://localhost:" + port);
-
         }
 
+        // The Event Loop
         while (true) {
             selector.select();
 
@@ -39,17 +46,13 @@ public class Server {
 
             while (iter.hasNext()) {
                 SelectionKey key = iter.next();
-
                 iter.remove();
 
-                if (!key.isValid())
-                    continue;
+                if (!key.isValid()) continue;
 
                 if (key.isAcceptable()) {
-                    // accept connection
                     acceptConnection(key);
                 } else if (key.isReadable()) {
-                    // read request
                     readRequest(key);
                 } else if (key.isWritable()) {
                     writeResponse(key);
@@ -59,23 +62,22 @@ public class Server {
     }
 
     public void acceptConnection(SelectionKey key) throws IOException {
-        // handle connection
         ServerSocketChannel server = (ServerSocketChannel) key.channel();
         SocketChannel client = server.accept();
+        
         if (client != null) {
             client.configureBlocking(false);
             SelectionKey clientKey = client.register(selector, SelectionKey.OP_READ);
+            
+            // Attach the state manager to this specific client
             clientKey.attach(new ClientConnection(client));
             System.out.println("New connection accepted from: " + client.getRemoteAddress());
         }
     }
 
     public void readRequest(SelectionKey key) throws IOException {
-        // 1. Get the attached ClientConnection
         ClientConnection conn = (ClientConnection) key.attachment();
         SocketChannel client = conn.getChannel();
-
-        // allocate buffer
         ByteBuffer buffer = conn.getReadBuffer();
 
         buffer.clear();
@@ -90,19 +92,50 @@ public class Server {
 
         if (bytesRead > 0) {
             buffer.flip();
-            // 2. Append newly read bytes to the client's accumulator
+            // Append newly read bytes to the connection's data stream
             conn.getRequestData().write(buffer.array(), 0, bytesRead);
-            // 3. Check if we received at least the full HTTP headers
-            if (conn.getState() == ClientConnection.State.READING_HEADERS && conn.areHeadersComplete()) {
-                conn.setState(ClientConnection.State.WRITING_RESPONSE);
-                String httpResponse = "HTTP/1.1 200 OK\r\nContent-Length: 13\r\n\r\nHello, World!";
-                conn.setWriteBuffer(ByteBuffer.wrap(httpResponse.getBytes()));
-                key.interestOps(SelectionKey.OP_WRITE);
+            
+            // Check if we have reached \r\n\r\n
+            if (conn.areHeadersComplete()) {
+                byte[] fullData = conn.getRequestData().toByteArray();
+                
+                ByteBuffer parserBuffer = ByteBuffer.allocate(fullData.length);
+                parserBuffer.put(fullData);
+
+                try {
+                    // 1. Let Asta's parser process the HTTP Request
+                    HttpRequest request = HttpParser.parse(parserBuffer);
+                    
+                    // 2. If it's not null, it means the FULL request (including body) is ready
+                    if (request != null) {
+                        conn.setRequest(request);
+                        conn.setState(ClientConnection.State.WRITING_RESPONSE);
+                        
+                        // For now, we take the first config. 
+                        // Later in Day 7, we'll do Virtual Hosting matching the "Host" header.
+                        ServerConfig currentConfig = configs.get(0);
+                        
+                        // --- Pass the request and configuration to the Router ---
+                        HttpResponse response = Router.handle(request, currentConfig);
+                        
+                        conn.setResponse(response);
+                        key.interestOps(SelectionKey.OP_WRITE);
+                    }
+                    // If request is null, we wait for more data in the next select() loop
+                    
+                } catch (Exception e) {
+                    System.err.println("Bad Request Error: " + e.getMessage());
+                    HttpResponse errResp = new HttpResponse();
+                    errResp.setStatusCode(400);
+                    errResp.setBody("400 Bad Request");
+                    conn.setResponse(errResp);
+                    conn.setState(ClientConnection.State.WRITING_RESPONSE);
+                    key.interestOps(SelectionKey.OP_WRITE);
+                }
             }
         }
     }
 
-    // Helper method to send a simple response
     private void writeResponse(SelectionKey key) throws IOException {
         ClientConnection conn = (ClientConnection) key.attachment();
         SocketChannel client = conn.getChannel();
@@ -112,10 +145,8 @@ public class Server {
             client.write(buffer);
         }
         
-        // If we finished writing the whole response
         if (buffer == null || !buffer.hasRemaining()) {
             System.out.println("--- Response sent successfully ---");
-
             conn.close();
             key.cancel();
         }
