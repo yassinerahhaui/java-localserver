@@ -5,6 +5,9 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.SocketChannel;
 
+import http.HttpRequest;
+import http.HttpResponse;
+
 public class ClientConnection {
 
     public enum State {
@@ -22,6 +25,9 @@ public class ClientConnection {
     private final ByteArrayOutputStream requestData;
 
     private ByteBuffer writeBuffer;
+
+    private HttpRequest request;
+    private HttpResponse response;
 
     public ClientConnection(SocketChannel channel) {
         this.channel = channel;
@@ -42,6 +48,18 @@ public class ClientConnection {
     public ByteBuffer getWriteBuffer() { return writeBuffer; }
     public void setWriteBuffer(ByteBuffer writeBuffer) { this.writeBuffer = writeBuffer; }
 
+    public HttpRequest getRequest() { return request; }
+    
+    public void setRequest(HttpRequest request) { 
+        this.request = request; 
+    }
+    
+    public HttpResponse getResponse() { return response; }
+    
+    public void setResponse(HttpResponse response) { 
+        this.response = response; 
+        this.writeBuffer = ByteBuffer.wrap(response.toBytes());
+    }
 
     // Helper: Checks if the end of HTTP headers (\r\n\r\n) has been reached
     public boolean areHeadersComplete() {
