@@ -48,8 +48,10 @@ public class Router {
                     break;
                 case "POST":
                     handlePost(request, response, route);
+                    break;
                 case "DELETE":
                     handleDelete(request, response, route);
+                    break;
                 default:
                     return sendError(response, 501, "Not Implemented!");
             }
@@ -120,15 +122,66 @@ public class Router {
         }
     }
 
-    private static void handlePost(HttpRequest request, HttpResponse response, RouteConfig route) {
-        // TODO: Handle file Upload logic here
+    private static void handlePost(HttpRequest request, HttpResponse response, RouteConfig route) throws IOException {
+        String relativePath = request.getPath().substring(route.getPath().length());
+        if (relativePath.startsWith("/")) {
+            relativePath = relativePath.substring(1);
+        }
+
+        if (relativePath.isEmpty()) {
+            relativePath = "uploaded_" + System.currentTimeMillis() + ".dat";
+        }
+
+        File targetFile = new File(route.getRoot(), relativePath);
+
+        // Security Audit: Path Traversal Protection
+        String canonicalRoot = new File(route.getRoot()).getCanonicalPath();
+        String canonicalTarget = targetFile.getCanonicalPath();
+
+        if (!canonicalTarget.startsWith(canonicalRoot)) {
+            sendError(response, 403, "Forbidden: Path Traversal Detected");
+            return;
+        }
+
+        File parentDir = targetFile.getParentFile();
+        if (parentDir != null && !parentDir.exists()) {
+            parentDir.mkdirs();
+        }
+
+        Files.write(targetFile.toPath(), request.getBody());
+
         response.setStatusCode(201);
+        response.setHeader("Content-Type", "text/plain");
         response.setBody("POST request received! Ready to upload files.");
     }
 
-    private static void handleDelete(HttpRequest request, HttpResponse response, RouteConfig route) {
-        // TODO: Handle File Deletion logic here
-        response.setStatusCode(204); // No Content
+    private static void handleDelete(HttpRequest request, HttpResponse response, RouteConfig route) throws IOException {
+        String relativePath = request.getPath().substring(route.getPath().length());
+        if (relativePath.startsWith("/")) {
+            relativePath = relativePath.substring(1);
+        }
+
+        File targetFile = new File(route.getRoot(), relativePath);
+
+        // Security Audit: Path Traversal Protection
+        String canonicalRoot = new File(route.getRoot()).getCanonicalPath();
+        String canonicalTarget = targetFile.getCanonicalPath();
+
+        if (!canonicalTarget.startsWith(canonicalRoot)) {
+            sendError(response, 403, "Forbidden: Path Traversal Detected");
+            return;
+        }
+        
+        if (targetFile.exists() && targetFile.isFile()) {
+            boolean deleted = targetFile.delete();
+            if (deleted) {
+                response.setStatusCode(204); 
+            } else {
+                sendError(response, 500, "Internal Server Error: Could not delete file");
+            }
+        } else {
+            sendError(response, 404, "Not Found: File does not exist");
+        }
     }
 
     private static void serveStaticFile(File file, HttpResponse response) throws IOException {
