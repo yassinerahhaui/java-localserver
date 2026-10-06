@@ -133,14 +133,28 @@ public class Router {
 
     private static void serveStaticFile(File file, HttpResponse response) throws IOException {
         response.setStatusCode(200);
-        // TODO: Add MIME Type detection (e.g., text/html for .html, image/png for .png)
-        response.setHeader("Content-Type", "text/plain");
-        
-        // Let Asta's HttpResponse handle file length and zero-copy headers
-        response.setFile(file); 
-        
-        // Read file bytes into body (For small files. For large files, use FileChannel)
-        response.setBody(Files.readAllBytes(file.toPath()));
+    
+    // Detect MIME Type based on file extension
+    String fileName = file.getName().toLowerCase();
+    if (fileName.endsWith(".html") || fileName.endsWith(".htm")) {
+        response.setHeader("Content-Type", "text/html");
+    } else if (fileName.endsWith(".css")) {
+        response.setHeader("Content-Type", "text/css");
+    } else if (fileName.endsWith(".js")) {
+        response.setHeader("Content-Type", "application/javascript");
+    } else if (fileName.endsWith(".png")) {
+        response.setHeader("Content-Type", "image/png");
+    } else if (fileName.endsWith(".jpg") || fileName.endsWith(".jpeg")) {
+        response.setHeader("Content-Type", "image/jpeg");
+    } else if (fileName.endsWith(".json")) {
+        response.setHeader("Content-Type", "application/json");
+    } else {
+        // Default fallback for unknown files
+        response.setHeader("Content-Type", "application/octet-stream");
+    }
+    
+    response.setFile(file); 
+    response.setBody(Files.readAllBytes(file.toPath()));
     }
 
     private static HttpResponse sendError(HttpResponse response, int code, String msg) {
