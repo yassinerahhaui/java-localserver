@@ -156,31 +156,40 @@ public class ConfigLoader {
    
     public void validate() throws Exception {
         if (servers.isEmpty()) {
-            throw new Exception("No servers configured f config.json");
+            throw new Exception("No servers configured in config.json");
         }
 
+        List<ServerConfig> validServers = new ArrayList<>();
         Set<String> serverKeys = new HashSet<>();
 
         for (ServerConfig server : servers) {
+            String serverName = server.getServerName() != null ? server.getServerName() : "unnamed-server";
+
             if (server.getHost() == null || server.getHost().trim().isEmpty()) {
-                throw new Exception("Server host cannot be empty");
-            }
-            if (server.getPorts() == null || server.getPorts().isEmpty()) {
-                throw new Exception("Server ports list cannot be empty");
+                System.err.println("⚠️ CONFIG WARNING: Server '" + serverName + "' has empty host. Disabling this server.");
+                continue;
             }
 
+            if (server.getPorts() == null || server.getPorts().isEmpty()) {
+                System.err.println("⚠️ CONFIG WARNING: Server '" + serverName + "' ports list is empty. Disabling this server.");
+                continue;
+            }
+
+            boolean hasPortError = false;
             Set<Integer> uniquePortsInServer = new HashSet<>();
             Iterator<Integer> portIterator = server.getPorts().iterator();
 
             while (portIterator.hasNext()) {
                 Integer port = portIterator.next();
                 if (port <= 0 || port > 65535) {
-                    throw new Exception("Port number ghalat: " + port);
+                    System.err.println("⚠️ CONFIG WARNING: Server '" + serverName + "' has invalid port number " + port + ". Disabling this server.");
+                    hasPortError = true;
+                    break;
                 }
 
                 // Audit Requirement: Handle duplicate port in same block bla ma y-crachi
                 if (!uniquePortsInServer.add(port)) {
-                    System.err.println("⚠️ CONFIG WARNING: Port " + port + " m3awed f nfs l-server ('" + server.getServerName() + "'). Ignoring duplicate.");
+                    System.err.println("⚠️ CONFIG WARNING: Port " + port + " duplicated in server '" + serverName + "'. Ignoring duplicate.");
                     portIterator.remove();
                     continue;
                 }
@@ -188,26 +197,50 @@ public class ConfigLoader {
                 // Audit Requirement: Handle conflicts across blocks
                 String hostPortNameKey = server.getHost() + ":" + port + ":" + (server.getServerName() != null ? server.getServerName().trim() : "");
                 if (!serverKeys.add(hostPortNameKey)) {
-                    System.err.println("⚠️ CONFIG WARNING: Conflict! Server '" + server.getServerName() + "' m3awed f port " + port + ". Ignoring conflict.");
+                    System.err.println("⚠️ CONFIG WARNING: Server '" + serverName + "' conflict on port " + port + ". Ignoring conflict.");
                     portIterator.remove();
                 }
             }
 
+            if (hasPortError || server.getPorts().isEmpty()) {
+                continue;
+            }
+
+            boolean routeError = false;
             if (server.getRoutes() != null) {
                 Set<String> routePaths = new HashSet<>();
                 for (RouteConfig route : server.getRoutes()) {
                     if (route.getPath() == null || route.getPath().trim().isEmpty()) {
-                        throw new Exception("Route path cannot be empty");
+                        System.err.println("⚠️ CONFIG WARNING: Server '" + serverName + "' has route with empty path. Disabling this server.");
+                        routeError = true;
+                        break;
                     }
                     if (!routePaths.add(route.getPath())) {
-                        throw new Exception("Duplicate route path '" + route.getPath() + "' f server " + server.getServerName());
+                        System.err.println("⚠️ CONFIG WARNING: Server '" + serverName + "' has duplicate route path '" + route.getPath() + "'. Disabling this server.");
+                        routeError = true;
+                        break;
                     }
                     if (route.getMethods() == null || route.getMethods().isEmpty()) {
-                        throw new Exception("Route " + route.getPath() + " khass y-koun fiha au moins 1 method");
+                        System.err.println("⚠️ CONFIG WARNING: Server '" + serverName + "' route '" + route.getPath() + "' has no methods. Disabling this server.");
+                        routeError = true;
+                        break;
                     }
                 }
             }
+
+            if (routeError) {
+                continue;
+            }
+
+            validServers.add(server);
         }
+
+        if (validServers.isEmpty()) {
+            throw new Exception("No valid servers remaining after configuration validation.");
+        }
+
+        this.servers.clear();
+        this.servers.addAll(validServers);
     }
 
    

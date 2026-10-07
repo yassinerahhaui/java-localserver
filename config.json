@@ -2,7 +2,7 @@
   "servers": [
     {
       "host": "0.0.0.0",
-      "ports": [8080, 8081],
+      "ports": [],
       "server_name": "main-server",
       "default_server": true,
       "client_max_body_size": "10MB",
@@ -50,7 +50,7 @@
     },
     {
       "host": "0.0.0.0",
-      "ports": [9090],
+      "ports": [9091],
       "server_name": "secondary-server",
       "default_server": false,
       "client_max_body_size": "5MB",
