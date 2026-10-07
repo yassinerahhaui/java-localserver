@@ -91,15 +91,15 @@ curl -i http://localhost:8080/
 > **🎯 L-Hadaf:** Browser y-telle3 site web static kamel b CSS w tsawer, w y-listi l-fichiers f dossier.
 
 ### Dev A (Router & Security)
-- [ ] Créer `src/router/Router.java`:
+- [x] Créer `src/router/Router.java`:
   - Matcher request path m3a les routes f `ServerConfig` (Longest prefix match)
   - Ila l-path ma kaynx f 7tta route -> Return `404 Not Found`
   - Ila l-method ma kaynach f `route.methods` -> Return `405 Method Not Allowed`
-- [ ] Sécurité Traversal Attack:
+- [x] Sécurité Traversal Attack:
   - Check `canonicalPath.startsWith(canonicalRoot)` bach t-mne3 `../../etc/passwd` -> Return `403 Forbidden`
 
 ### Asta (Static Files & Directory Listing)
-- [ ] Créer `src/handlers/StaticFileHandler.java`:
+- [x] Créer `src/handlers/StaticFileHandler.java`:
   - Map dial MIME types (`.html`, `.css`, `.js`, `.png`, `.jpg`, `.json`, `.pdf`...)
   - Ila kan l-path dossier: qleb 3la `default_file` (index.html)
   - Ila ma kanx `default_file` w `directory_listing: true`: généri page HTML fiha la liste dial les fichiers m3a links
@@ -126,10 +126,10 @@ curl -i -X DELETE http://localhost:8080/   # 405 Method Not Allowed
 > **🎯 L-Hadaf:** Client kay-lo7 fichier b POST, kay-t-kteb f disk bla corruption, w kay-t-mseh b DELETE.
 
 ### Dev A (Body Parsing & Body Limit)
-- [ ] F `HttpParser.java`:
+- [x] F `HttpParser.java`:
   - Qra `Content-Length` header
   - Ma t-golx "Request Complete" 7tta y-koun `dataLength >= headerEnd + contentLength`
-- [ ] Handle `client_max_body_size`:
+- [x] Handle `client_max_body_size`:
   - Check la taille dial body m3a limit f config
   - Ila fat l-limit -> Return **`413 Payload Too Large`** direct bla ma t-qra l-baqi
 - [ ] F `Server.java:handleWrite`:
@@ -137,12 +137,12 @@ curl -i -X DELETE http://localhost:8080/   # 405 Method Not Allowed
   - ⚠️ **Audit Rule:** Max 1 write call per select iteration!
 
 ### Asta (Upload & Delete Endpoints)
-- [ ] F `Router.java` method `handlePost()`:
+- [x] F `Router.java` method `handlePost()`:
   - Extracti smia dial l-fichier mn `Content-Disposition: filename="..."`
   - Ila ma kanx header, dir default name `upload_<timestamp>.dat`
   - Kteb raw bytes f dossier dial l-upload: `Files.write(targetPath, body)`
   - Jawb b **`201 Created`** m3a `Location: /upload/<filename>`
-- [ ] F `Router.java` method `handleDelete()`:
+- [x] F `Router.java` method `handleDelete()`:
   - Mseh l-fichier b `Files.delete(filePath)`
   - Ila t-mseh -> Return **`204 No Content`**
   - Ila l-fichier aslan ma kaynx -> Return **`404 Not Found`**
@@ -181,13 +181,13 @@ curl -i -X DELETE http://localhost:8080/upload/test.txt   # 204 No Content
   - Check body size limit f wst l-chunks (ila fat limit -> 413)
 
 ### Asta (Cookies & Session Management)
-- [ ] Créer `src/utils/Session.java`:
+- [x] Créer `src/utils/Session.java`:
   - `id` (UUID), `creationTime`, `lastAccessedTime`, `attributes` (Map)
-- [ ] Créer `src/utils/SessionManager.java`:
+- [x] Créer `src/utils/SessionManager.java`:
   - `ConcurrentHashMap<String, Session>`
   - Method `createSession()`, `getSession(id)`, `removeSession(id)`
   - Expiration dial session mor 30 minutes d'inactivité
-- [ ] F `Server.java`:
+- [x] F `Server.java` / `Router.java`:
   - Qra header `Cookie: session_id=...`
   - Ila ma kanx wla expire -> dir `createSession()`
   - F response zid: `Set-Cookie: session_id=<UUID>; Path=/`
@@ -224,12 +224,12 @@ curl -i -X POST -H "Transfer-Encoding: chunked" \
   - Timeout dial 5s: ila فات 5 ثواني dir `process.destroyForcibly()` w rdd **`504 Gateway Timeout`**
 
 ### Asta (CGI Scripts & Response Parser)
-- [ ] Créer `cgi-bin/hello.py`:
+- [x] Créer `cgi-bin/hello.py`:
   - Script Python kay-qra `sys.stdin` ila kan POST
   - Kay-tbe3 headers: `Status: 200 OK\r\nContent-Type: application/json\r\n\r\n`
   - Kay-tbe3 JSON fih server info w l-body li wsel
-- [ ] Créer `cgi-bin/info.sh` (Bonus dial 2nd CGI interpreter - Bash)
-- [ ] F `CgiHandler.java` method `parseCgiResponse()`:
+- [x] Créer `cgi-bin/info.sh` (Bonus dial 2nd CGI interpreter - Bash)
+- [x] F `CgiHandler.java` method `parseCgiResponse()`:
   - Ferreq CGI headers mn CGI body
   - Parse `Status: <code>` w `Content-Type: <type>`
 

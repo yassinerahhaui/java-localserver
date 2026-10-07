@@ -72,14 +72,22 @@ public class HttpRequest {
 
     // Cookies
     public Map<String, String> getCookies() {
+        if (cookies.isEmpty() && getHeader("cookie") != null) {
+            parseCookies();
+        }
         return cookies;
     }
 
     public String getCookie(String name) {
+        if (name == null) return null;
+        if (cookies.isEmpty() && getHeader("cookie") != null) {
+            parseCookies();
+        }
         return cookies.get(name);
     }
 
     public void parseCookies() {
+        cookies.clear();
         String cookieHeader = getHeader("cookie");
         if (cookieHeader != null) {
             String[] pairs = cookieHeader.split(";");
@@ -156,7 +164,7 @@ public class HttpRequest {
         if (s == null)
             return "";
         try {
-            return URLDecoder.decode(s, StandardCharsets.UTF_8.name());
+            return java.net.URLDecoder.decode(s, java.nio.charset.StandardCharsets.UTF_8.name());
         } catch (Exception e) {
             return s;
         }

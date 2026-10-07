@@ -1,219 +1,123 @@
 package router;
 
-
-
-import java.io.File;
-import java.io.IOException;
-import java.nio.file.Files;
-
 import config.RouteConfig;
 import config.ServerConfig;
+import error.ErrorHandler;
+import handlers.StaticFileHandler;
 import http.HttpRequest;
 import http.HttpResponse;
 
+import java.util.List;
+
 public class Router {
-    public static HttpResponse handle(HttpRequest request, ServerConfig config) {
-        HttpResponse response = new HttpResponse();
 
-        // 1. find the exact or closest route for this path
-        RouteConfig route = findMatchingRoute(request.getPath(), config);
-
-        if (route == null) {
-            return sendError(response, 404, "Not Found: No route configuration.");
+    /**
+     * Finds the best matching route for a request path using longest prefix matching.
+     */
+    public static RouteConfig matchRoute(ServerConfig serverConfig, String requestPath) {
+        if (serverConfig == null || serverConfig.getRoutes() == null || requestPath == null) {
+            return null;
         }
 
-        // 2. Check if HTTP method is allowed on this route
-        if (route.getMethods() != null && !route.getMethods().contains(request.getMethod())) {
-            return sendError(response, 405, "Method Not Allowed!");
-        }
-
-        // 3. Check Max Body Size Limit
-        if (request.getBody() != null && request.getBody().length > route.getClientMaxBodySize()) {
-            return sendError(response, 413, "Payload Too Large!");
-        }
-
-        // 4. Handle Redirection (301 / 302)
-        if (route.isRedirect()) {
-            // not completed
-            response.setStatusCode(301);
-            response.setHeader("Location", String.valueOf(route.getRedirect().get("url")));
-            return response;
-        }
-
-        // 5. Route to the right handler based on Method
-        try {
-            switch (request.getMethod()) {
-                case "GET":
-                    handleGet(request, response, route);
-                    break;
-                case "POST":
-                    handlePost(request, response, route);
-                    break;
-                case "DELETE":
-                    handleDelete(request, response, route);
-                    break;
-                default:
-                    return sendError(response, 501, "Not Implemented!");
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-            return sendError(response, 500, "Internal Server Error");
-        }
-
-
-        return response;
-    }
-
-    private static RouteConfig findMatchingRoute(String reqPath, ServerConfig config) {
         RouteConfig bestMatch = null;
-        int maxLen = -1;
+        int longestMatchLength = -1;
 
-        // Matches the longest prefix. Example: request for "/a/b/c"
-        // Route "/a/b" beats route "/a"
-        for (RouteConfig route : config.getRoutes()) {
-            if (reqPath.startsWith(route.getPath())) {
-                if (route.getPath().length() > maxLen) {
-                    maxLen = route.getPath().length();
-                    bestMatch = route;
-                }
+        for (RouteConfig route : serverConfig.getRoutes()) {
+            String routePath = route.getPath();
+            if (routePath == null) continue;
+
+            boolean matches = false;
+            if (requestPath.equals(routePath)) {
+                matches = true;
+            } else if (routePath.equals("/")) {
+                matches = true;
+            } else if (requestPath.startsWith(routePath.endsWith("/") ? routePath : routePath + "/")) {
+                matches = true;
+            }
+
+            if (matches && routePath.length() > longestMatchLength) {
+                longestMatchLength = routePath.length();
+                bestMatch = route;
             }
         }
+
         return bestMatch;
     }
 
-    private static void handleGet(HttpRequest request, HttpResponse response, RouteConfig route) throws IOException {
-        // Construct the pfysical file path
-        String relativePath = request.getPath().substring(route.getPath().length());
-        if (relativePath.startsWith("/")) {
-            relativePath = relativePath.substring(1);
+    /**
+     * Alias for matchRoute to maintain compatibility across branches.
+     */
+    public static RouteConfig findMatchingRoute(String requestPath, ServerConfig serverConfig) {
+        return matchRoute(serverConfig, requestPath);
+    }
+
+    /**
+     * Alias for route to support Server.java calling Router.handle(request, config).
+     */
+    public static HttpResponse handle(HttpRequest request, ServerConfig serverConfig) {
+        return route(request, serverConfig);
+    }
+
+    /**
+     * Main dispatch method to route any HttpRequest to the appropriate handler.
+     */
+    public static HttpResponse route(HttpRequest request, ServerConfig serverConfig) {
+        if (request == null) {
+            return ErrorHandler.handleError(serverConfig, 400, "Bad Request: Request is null");
         }
 
-        File requestedFile = new File(route.getRoot(), relativePath);
-
-        // Security Audit: Prevent Directory Traversal Attack (e.g., /../../../etc/passwd)
-        String canonicalRoot = new File(route.getRoot()).getCanonicalPath();
-        String canonicalRequested = requestedFile.getCanonicalPath();
-
-        if (!canonicalRequested.startsWith(canonicalRoot)) {
-            sendError(response, 403, "Forbidden: Path Traversal Detected!");
-            return;
+        RouteConfig matchingRoute = matchRoute(serverConfig, request.getPath());
+        if (matchingRoute == null) {
+            return ErrorHandler.handleError(serverConfig, 404, "Not Found: No matching route for " + request.getPath());
         }
 
-        if (requestedFile.exists()) {
-            if (requestedFile.isDirectory()) {
-                File defaultFile = new File(requestedFile, route.getDefaultFile());
-                if (defaultFile.exists() && defaultFile.isFile()) {
-                    serveStaticFile(defaultFile, response);
-                } else if (Boolean.TRUE.equals(route.getDirectoryListing())) {
-                    // TODO: Asta will build a beautiful HTML directory listing here
-                    response.setStatusCode(200);
-                    response.setHeader("Content-Type", "text/html");
-                    response.setBody("<h1>Directory Listing for " + request.getPath() + "</h1>");
-                } else {
-                    sendError(response, 403, "Forbidden: Directory listing denied");
-                }
-                
-            } else {
-                // It's a normal file
-                serveStaticFile(requestedFile, response);
+        // Validate allowed HTTP methods for this route
+        List<String> allowedMethods = matchingRoute.getMethods();
+        String method = request.getMethod() != null ? request.getMethod().toUpperCase() : "GET";
+        if (allowedMethods != null && !allowedMethods.isEmpty()) {
+            if (!allowedMethods.contains(method)) {
+                return ErrorHandler.handleError(serverConfig, 405, "Method " + method + " not allowed on route " + matchingRoute.getPath());
             }
+        }
+
+        // Validate client_max_body_size limit
+        long maxBodySize = matchingRoute.getClientMaxBodySize() > 0 
+                ? matchingRoute.getClientMaxBodySize() 
+                : (serverConfig != null ? serverConfig.getClientMaxBodySize() : 0);
+        if (request.getBody() != null && maxBodySize > 0 && request.getBody().length > maxBodySize) {
+            return ErrorHandler.handleError(serverConfig, 413, "Payload Too Large: Body size (" + request.getBody().length + " bytes) exceeds maximum allowed (" + maxBodySize + " bytes)");
+        }
+
+        // Handle Redirection (301 / 302)
+        if (matchingRoute.isRedirect()) {
+            return StaticFileHandler.handleRedirect(matchingRoute);
+        }
+
+        // Delegate to handler (CGI or Static Files)
+        HttpResponse response;
+        if (matchingRoute.hasCgi() && cgi.CgiHandler.isCgiRequest(matchingRoute, request.getPath())) {
+            response = cgi.CgiHandler.executeCgi(request, serverConfig, matchingRoute);
         } else {
-            sendError(response, 404, "Not Found!");
-        }
-    }
-
-    private static void handlePost(HttpRequest request, HttpResponse response, RouteConfig route) throws IOException {
-        String relativePath = request.getPath().substring(route.getPath().length());
-        if (relativePath.startsWith("/")) {
-            relativePath = relativePath.substring(1);
+            response = StaticFileHandler.handle(request, serverConfig, matchingRoute);
         }
 
-        if (relativePath.isEmpty()) {
-            relativePath = "uploaded_" + System.currentTimeMillis() + ".dat";
-        }
+        // Session & Cookie Tracking (Day 5)
+        utils.SessionManager.getInstance().handleRequestSession(request, response);
 
-        File targetFile = new File(route.getRoot(), relativePath);
-
-        // Security Audit: Path Traversal Protection
-        String canonicalRoot = new File(route.getRoot()).getCanonicalPath();
-        String canonicalTarget = targetFile.getCanonicalPath();
-
-        if (!canonicalTarget.startsWith(canonicalRoot)) {
-            sendError(response, 403, "Forbidden: Path Traversal Detected");
-            return;
-        }
-
-        File parentDir = targetFile.getParentFile();
-        if (parentDir != null && !parentDir.exists()) {
-            parentDir.mkdirs();
-        }
-
-        Files.write(targetFile.toPath(), request.getBody());
-
-        response.setStatusCode(201);
-        response.setHeader("Content-Type", "text/plain");
-        response.setBody("POST request received! Ready to upload files.");
-    }
-
-    private static void handleDelete(HttpRequest request, HttpResponse response, RouteConfig route) throws IOException {
-        String relativePath = request.getPath().substring(route.getPath().length());
-        if (relativePath.startsWith("/")) {
-            relativePath = relativePath.substring(1);
-        }
-
-        File targetFile = new File(route.getRoot(), relativePath);
-
-        // Security Audit: Path Traversal Protection
-        String canonicalRoot = new File(route.getRoot()).getCanonicalPath();
-        String canonicalTarget = targetFile.getCanonicalPath();
-
-        if (!canonicalTarget.startsWith(canonicalRoot)) {
-            sendError(response, 403, "Forbidden: Path Traversal Detected");
-            return;
-        }
-        
-        if (targetFile.exists() && targetFile.isFile()) {
-            boolean deleted = targetFile.delete();
-            if (deleted) {
-                response.setStatusCode(204); 
-            } else {
-                sendError(response, 500, "Internal Server Error: Could not delete file");
-            }
-        } else {
-            sendError(response, 404, "Not Found: File does not exist");
-        }
-    }
-
-    private static void serveStaticFile(File file, HttpResponse response) throws IOException {
-        response.setStatusCode(200);
-    
-    // Detect MIME Type based on file extension
-    String fileName = file.getName().toLowerCase();
-    if (fileName.endsWith(".html") || fileName.endsWith(".htm")) {
-        response.setHeader("Content-Type", "text/html");
-    } else if (fileName.endsWith(".css")) {
-        response.setHeader("Content-Type", "text/css");
-    } else if (fileName.endsWith(".js")) {
-        response.setHeader("Content-Type", "application/javascript");
-    } else if (fileName.endsWith(".png")) {
-        response.setHeader("Content-Type", "image/png");
-    } else if (fileName.endsWith(".jpg") || fileName.endsWith(".jpeg")) {
-        response.setHeader("Content-Type", "image/jpeg");
-    } else if (fileName.endsWith(".json")) {
-        response.setHeader("Content-Type", "application/json");
-    } else {
-        // Default fallback for unknown files
-        response.setHeader("Content-Type", "application/octet-stream");
-    }
-    
-    response.setFile(file); 
-    response.setBody(Files.readAllBytes(file.toPath()));
-    }
-
-    private static HttpResponse sendError(HttpResponse response, int code, String msg) {
-        response.setStatusCode(code);
-        response.setHeader("Content-Type", "text/html");
-        response.setBody("<h1>" + code + " " + HttpResponse.getStatusMessage(code) + "</h1><p>" + msg + "</p>");
         return response;
+    }
+
+    /**
+     * Handles POST file uploads.
+     */
+    public static HttpResponse handlePost(HttpRequest request, ServerConfig serverConfig, RouteConfig route) {
+        return StaticFileHandler.handlePost(request, serverConfig, route);
+    }
+
+    /**
+     * Handles DELETE file deletions.
+     */
+    public static HttpResponse handleDelete(HttpRequest request, ServerConfig serverConfig, RouteConfig route) {
+        return StaticFileHandler.handleDelete(request, serverConfig, route);
     }
 }
