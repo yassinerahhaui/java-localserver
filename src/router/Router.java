@@ -66,6 +66,13 @@ public class Router {
             return ErrorHandler.handleError(serverConfig, 400, "Bad Request: Request is null");
         }
 
+        // Security: Path Traversal Protection
+        String rawPath = request.getPath();
+        String decodedPath = HttpRequest.urlDecode(rawPath);
+        if (rawPath.contains("..") || decodedPath.contains("..")) {
+            return ErrorHandler.handleError(serverConfig, 403, "Forbidden: Path Traversal Detected");
+        }
+
         RouteConfig matchingRoute = matchRoute(serverConfig, request.getPath());
         if (matchingRoute == null) {
             return ErrorHandler.handleError(serverConfig, 404, "Not Found: No matching route for " + request.getPath());
