@@ -170,7 +170,7 @@ curl -i -X DELETE http://localhost:8080/upload/test.txt   # 204 No Content
 > **🎯 L-Hadaf:** Server kay-3qel 3la l-browser b Sessions w Cookies, w kay-fhem stream chunked.
 
 ### Dev A (Chunked Transfer Encoding)
-- [ ] F `HttpParser.java`:
+- [x] F `HttpParser.java`:
   - Detecter `Transfer-Encoding: chunked`
   - Implementer loop dial parsing:
     1. Qra chunk size en hex (e.g. `1f\r\n`)
@@ -206,29 +206,24 @@ curl -i -X POST -H "Transfer-Encoding: chunked" \
 
 ---
 
-## 📅 Nhar 6: CGI Engine (Python & Bash Scripts)
+## 📅 Nhar 6: CGI Engine (Python Script)
 
-> **🎯 L-Hadaf:** Executer des scripts dynamiques (`.py`, `.sh`) b `ProcessBuilder` bla ma y-t-blocka l-server.
+> **🎯 L-Hadaf:** Executer des scripts dynamiques (`.py`) b `ProcessBuilder` bla ma y-t-blocka l-server.
 
-### Dev A (CGI Process Runner & Asynchronous Polling)
-- [ ] Créer `src/cgi/CgiHandler.java`:
+### Dev A & Asta (CGI Process Runner & Monitoring)
+- [x] Créer `src/cgi/CgiHandler.java`:
   - Configurer `ProcessBuilder(interpreter, scriptFile.getAbsolutePath())`
   - Set working directory: `pb.directory(scriptFile.getParentFile())`
   - Injecter CGI Environment Variables:
     - `REQUEST_METHOD`, `PATH_INFO`, `QUERY_STRING`, `CONTENT_LENGTH`, `CONTENT_TYPE`
     - `SERVER_NAME`, `SERVER_PORT`, `SERVER_PROTOCOL`
     - Headers HTTP f format: `HTTP_HEADER_NAME`
-- [ ] Sift body l stdin dial script (ila kan POST): `process.getOutputStream().write(body)`
-- [ ] F `Server.java`: **Non-blocking CGI Monitoring**:
-  - `conn.isWaitingForCgi()`: qra output mn `stdout.available()` bla ma t-blloki
-  - Timeout dial 5s: ila فات 5 ثواني dir `process.destroyForcibly()` w rdd **`504 Gateway Timeout`**
-
-### Asta (CGI Scripts & Response Parser)
+- [x] Sift body l stdin dial script (ila kan POST): `process.getOutputStream().write(body)`
+- [x] Timeout dial 5s: ila فات 5 ثواني dir `process.destroyForcibly()` w rdd **`504 Gateway Timeout`**
 - [x] Créer `cgi-bin/hello.py`:
   - Script Python kay-qra `sys.stdin` ila kan POST
   - Kay-tbe3 headers: `Status: 200 OK\r\nContent-Type: application/json\r\n\r\n`
   - Kay-tbe3 JSON fih server info w l-body li wsel
-- [x] Créer `cgi-bin/info.sh` (Bonus dial 2nd CGI interpreter - Bash)
 - [x] F `CgiHandler.java` method `parseCgiResponse()`:
   - Ferreq CGI headers mn CGI body
   - Parse `Status: <code>` w `Content-Type: <type>`
@@ -241,8 +236,6 @@ curl -i http://localhost:8080/cgi-bin/hello.py
 curl -i -X POST -d "Hello CGI" http://localhost:8080/cgi-bin/hello.py
 # 3. Test Python POST (Chunked):
 curl -i -X POST -H "Transfer-Encoding: chunked" --data-binary "Chunked CGI" http://localhost:8080/cgi-bin/hello.py
-# 4. Test Shell CGI (2nd CGI system):
-curl -i http://localhost:8080/cgi-bin/info.sh
 ```
 
 ---
@@ -252,24 +245,26 @@ curl -i http://localhost:8080/cgi-bin/info.sh
 > **🎯 L-Hadaf:** Passer Siege b 99.5%+ availability, tester les conflits dial ports, w t-kouno wajdin 100% l l-Audit.
 
 ### Dev A (Virtual Hosting & Port Conflict Safety)
-- [ ] Implementer Virtual Hosting f `resolveVirtualHost`:
+- [x] Implementer Virtual Hosting f `resolveServerConfig`:
   - Matcher request `Host:` header m3a `server_name`
   - Fallback l `default_server` ila ma kanx match
-- [ ] Gérer les conflits dial ports:
+- [x] Gérer les conflits dial ports:
   - Ila port t-3awed f nfs l-block -> Affiche warning w zido mra we7da
   - Ila port t-3awed f multiple blocks m3a hostnames mokhtalifin -> Partager socket (Virtual Hosting)
   - Ila OS bind failed f port wa7ed -> Affiche warning w kmml f les autres ports bla crash!
-- [ ] Check timeout dial stale connections:
+- [x] Check timeout dial stale connections:
   - F `cleanupTimedOutConnections()`, sdd sockets li fatou 30s bla activity bach ma ybqawx hanging.
 
-### Asta (Admin Dashboard, Automated Test & Siege)
-- [ ] Créer `src/utils/Metrics.java`:
-  - `totalRequests`, `activeConnections`, `uptime`, `statusCodes` Map
-- [ ] Créer `/admin` w `/metrics` endpoints f `Router.java`:
-  - `/metrics` -> JSON telemetry
-  - `/admin` -> HTML dashboard fih les stats w les sessions actives m3a bouton Invalidate
-- [ ] Créer `audit_test.sh`:
-  - Script bash automatisé kay-testi ga3 les requirements dial l-audit sheet
+### Asta (Automated Audit Test & Siege)
+- [x] Créer `audit_test.sh`:
+  - Script automatisé (`TestAudit.java` + bash) kay-testi ga3 les 34 requirements dial l-audit sheet:
+    - HTTP Parser (GET, POST Content-Length, Chunked, Malformed 400)
+    - Methods (GET 200, POST 201 Created + Location, DELETE 204 No Content / 404)
+    - Security (Directory Traversal 403, 404 Custom Error Pages, 405 Method Not Allowed, 413 Payload Too Large)
+    - Directory Listing HTML table w 301 Redirection
+    - Cookies & Sessions (`Set-Cookie`, `session_id`)
+    - CGI Python execution
+    - Virtual Hosting resolution
 - [ ] Stress Test m3a **Siege**:
   ```bash
   siege -b -c 50 -t 30S http://localhost:8080/
