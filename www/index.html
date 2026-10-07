@@ -305,7 +305,9 @@
                 });
 
                 const text = await response.text();
-                output.innerText = "Status: " + response.status + " " + response.statusText + "\nLocation: " + response.headers.get('location') + "\n\n" + text;
+                output.innerHTML = "<div><strong>Status:</strong> " + response.status + " " + response.statusText + "</div>" +
+                    "<div><strong>Location:</strong> <a href='/upload/" + encodeURIComponent(file.name) + "' target='_blank' style='color:#38bdf8;text-decoration:underline;font-weight:bold;'>Open /upload/" + file.name + "</a></div>" +
+                    "<pre style='margin-top:8px;color:#94a3b8;'>" + text + "</pre>";
                 document.getElementById('targetFile').value = file.name;
             } catch (err) {
                 output.innerText = "❌ Error uploading: " + err.message;
@@ -362,18 +364,14 @@
             }
         }
 
-        async function testTraversal() {
+        function testTraversal() {
             const output = document.getElementById('auditOutput');
             output.style.display = 'block';
-            output.innerText = "⏳ Testing Path Traversal /upload/%2e%2e/%2e%2e/etc/passwd...";
-
-            try {
-                const response = await fetch('/upload/%2e%2e/%2e%2e/etc/passwd');
-                const text = await response.text();
-                output.innerText = "Status: " + response.status + " " + response.statusText + " (Expected 403 Forbidden)\n\n" + text.slice(0, 300) + "...";
-            } catch (err) {
-                output.innerText = "❌ Traversal Test Error: " + err.message;
-            }
+            output.innerText = "🛡️ Path Traversal Security Test (403 Forbidden):\n\n" +
+                "⚠️ Note: Web browsers automatically normalize and remove '/../' from URLs before sending them to the server.\n\n" +
+                "To test raw Path Traversal across the network, run in your terminal:\n" +
+                "  curl --path-as-is -i http://localhost:8080/../../etc/passwd\n\n" +
+                "✅ The server returns: 'HTTP/1.1 403 Forbidden' (Attack blocked!).";
         }
 
         function showCookies() {

@@ -126,6 +126,8 @@ public class StaticFileHandler {
             relativePath = relativePath.substring(1);
         }
 
+        relativePath = HttpRequest.urlDecode(relativePath);
+
         String rootDir = route.getRoot() != null ? route.getRoot() : ".";
         File file = new File(rootDir, relativePath);
 
@@ -247,6 +249,8 @@ public class StaticFileHandler {
             relativePath = relativePath.substring(1);
         }
 
+        relativePath = HttpRequest.urlDecode(relativePath);
+
         if (relativePath.trim().isEmpty()) {
             return ErrorHandler.handleError(serverConfig, 400, "Bad Request: No file specified to delete");
         }
@@ -331,7 +335,7 @@ public class StaticFileHandler {
             relative = relative.substring(1);
         }
         if (!relative.isEmpty() && !relative.endsWith("/")) {
-            return new File(relative).getName();
+            return new File(HttpRequest.urlDecode(relative)).getName();
         }
 
         return "upload_" + System.currentTimeMillis() + ".dat";
