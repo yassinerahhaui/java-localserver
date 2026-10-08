@@ -67,12 +67,25 @@ public class Server {
 
                 if (!key.isValid()) continue;
 
-                if (key.isAcceptable()) {
-                    acceptConnection(key);
-                } else if (key.isReadable()) {
-                    readRequest(key);
-                } else if (key.isWritable()) {
-                    writeResponse(key);
+                try {
+                    if (key.isAcceptable()) {
+                        acceptConnection(key);
+                    } else if (key.isReadable()) {
+                        readRequest(key);
+                    } else if (key.isWritable()) {
+                        writeResponse(key);
+                    }
+                } catch (IOException e) {
+                    // AUDIT: When client abruptly disconnects, reset by peer or broken pipe occurs, safely close connection
+                    if (key.attachment() instanceof ClientConnection conn) {
+                        conn.close();
+                    }
+                    key.cancel();
+                } catch (Exception e) {
+                    if (key.attachment() instanceof ClientConnection conn) {
+                        conn.close();
+                    }
+                    key.cancel();
                 }
             }
         }
@@ -81,7 +94,7 @@ public class Server {
     // AUDIT: Closes connections that have been inactive for longer than CONNECTION_TIMEOUT_MS
     private void cleanupTimedOutConnections() {
         long now = System.currentTimeMillis();
-        for (SelectionKey key : selector.keys()) {
+        for (SelectionKey key : new ArrayList<>(selector.keys())) {
             if (key.isValid() && key.attachment() instanceof ClientConnection conn) {
                 if (now - conn.getLastActivityTime() > CONNECTION_TIMEOUT_MS) {
                     conn.close();
@@ -89,18 +102,23 @@ public class Server {
                 }
             }
         }
+        utils.SessionManager.getInstance().cleanExpiredSessions();
     }
 
-    public void acceptConnection(SelectionKey key) throws IOException {
-        ServerSocketChannel server = (ServerSocketChannel) key.channel();
-        SocketChannel client = server.accept();
-        
-        if (client != null) {
-            client.configureBlocking(false); // AUDIT: Non-blocking client
-            int serverPort = ((InetSocketAddress) server.getLocalAddress()).getPort();
+    public void acceptConnection(SelectionKey key) {
+        try {
+            ServerSocketChannel server = (ServerSocketChannel) key.channel();
+            SocketChannel client = server.accept();
+            
+            if (client != null) {
+                client.configureBlocking(false); // AUDIT: Non-blocking client
+                int serverPort = ((InetSocketAddress) server.getLocalAddress()).getPort();
 
-            SelectionKey clientKey = client.register(selector, SelectionKey.OP_READ);
-            clientKey.attach(new ClientConnection(client, serverPort));
+                SelectionKey clientKey = client.register(selector, SelectionKey.OP_READ);
+                clientKey.attach(new ClientConnection(client, serverPort));
+            }
+        } catch (IOException e) {
+            System.err.println("Warning: Error accepting incoming connection: " + e.getMessage());
         }
     }
 

@@ -36,6 +36,9 @@ public class SessionManager {
      * Creates and registers a new Session.
      */
     public Session createSession() {
+        if (sessions.size() > 2000) {
+            cleanExpiredSessions();
+        }
         Session session = new Session();
         sessions.put(session.getId(), session);
         return session;
